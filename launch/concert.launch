@@ -1,0 +1,12 @@
+<launch>
+  
+    <include file="$(find concert_master)/launch/concert_master.launch">
+        <arg name="concert_name" value="BPEL Adapter"/>
+        <arg name="services" value="bpel_adapter_chatter/bpel_adapter.services"/>
+        <arg name="conductor_auto_invite" value="true" />
+        <arg name="conductor_local_clients_only" value="false" />
+        <arg name="auto_enable_services" value="true" />
+        <arg name="gateway_network_interface" value="wlan0" />
+        <arg name="scheduler_type" value="$(optenv CONCERT_SCHEDULER_TYPE compatibility_tree)"/>  <!-- options are demo, compatibility_tree -->
+    </include>
+</launch>

@@ -1,0 +1,10 @@
+###############################################################################
+# Teleoperations
+###############################################################################
+
+- name: concert_adapter_app
+  role: 'User'
+  compatibility: rocon:/pc/*/hydro|indigo/*
+  display_name: Concert Adapter
+  description: Manage resource allocations in the concert
+  max: -1

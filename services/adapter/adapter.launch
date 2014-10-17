@@ -1,0 +1,4 @@
+<launch>
+  <node pkg="bpel_adapter_chatter" type="adapter_svc.py" name="adapter_svc" required="true">
+  </node>
+</launch>
