@@ -27,6 +27,7 @@ import bpel_adapter.msg as adapter_msgs
 import rospkg
 import concert_service_link_graph
 import rocon_uri
+import yaml
 
 #from server import AdapterSOAPServer as soap_server
 from server import Starter
@@ -110,6 +111,9 @@ class AdapterSvc:
             @param msg: incoming message
             @type msg: std_msgs.msg (String)
         '''
+
+        # Old Version
+        '''
         pkg_name = msg.data
         rospack = rospkg.RosPack()
         ###################################
@@ -118,15 +122,18 @@ class AdapterSvc:
         # Currently there is no pattern for the address
         ###################################
 
-        ########################################################
-        # Structure of Link Graph
-        # {name, nodes, topics, actions, edges}
-        ########################################################
-        #load_linkgraph_from_yaml()
         address_linkgraph = rospack.get_path(pkg_name) + "/services/chatter/chatter.link_graph"
 
         impl_name, impl = concert_service_link_graph.load_linkgraph_from_file(address_linkgraph)
         self.linkgraph = impl
+        '''
+
+        ########################################################
+        # Structure of Link Graph
+        # {name, nodes, topics, actions, edges}
+        ########################################################
+        lg_yaml = yaml.load(msg.data)
+        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(impl)
 
         print("Link Graph .............................." % impl)
 
