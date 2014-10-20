@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(bpel_adapter_chatter)
+project(concert_adapter)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
