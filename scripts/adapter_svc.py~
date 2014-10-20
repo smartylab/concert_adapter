@@ -36,6 +36,7 @@ from geometry_msgs.msg import Twist
 ##############################################################################
 # Classes
 ##############################################################################
+DEFAULT_QUEUE_SIZE = 1024
 
 class AdapterSvc:
     '''
@@ -169,7 +170,7 @@ class AdapterSvc:
           @type msg: adapter_msgs.Adapter
         '''
         topic_name = "/turtlebot/android/virtual_joystick/cmd_vel"
-        publisher = rospy.Publisher(topic_name, Twist)
+        publisher = rospy.Publisher(topic_name, Twist, queue_size=DEFAULT_QUEUE_SIZE)
 
         data = adapter_msgs.Adapter()
 
@@ -219,7 +220,7 @@ class AdapterSvc:
             r.sleep()
 
         print "=================================================="
-        command_reply_publisher = rospy.Publisher('/services/adapter/command_reply', std_msgs.String)
+        command_reply_publisher = rospy.Publisher('/services/adapter/command_reply', std_msgs.String, queue_size=DEFAULT_QUEUE_SIZE)
         time.sleep(1)
         command_reply_publisher.publish("command_success")
 
@@ -254,7 +255,7 @@ class AdapterSvc:
                 if request_id in self.pending_requests:
                     self.pending_requests.remove(request_id)
 
-                    resource_alloc_reply_publisher = rospy.Publisher('/services/adapter/resources_alloc_reply', std_msgs.String)
+                    resource_alloc_reply_publisher = rospy.Publisher('/services/adapter/resources_alloc_reply', std_msgs.String, queue_size=DEFAULT_QUEUE_SIZE)
                     time.sleep(1)
                     resource_alloc_reply_publisher.publish("resource_alloc_success")
                     print "resource_alloc_reply is sent"
