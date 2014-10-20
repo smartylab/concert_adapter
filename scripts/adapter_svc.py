@@ -117,10 +117,18 @@ class AdapterSvc:
         # Remaining address to the linkgraph file should be discussed to make a pattern
         # Currently there is no pattern for the address
         ###################################
+
+        ########################################################
+        # Structure of Link Graph
+        # {name, nodes, topics, actions, edges}
+        ########################################################
+        #load_linkgraph_from_yaml()
         address_linkgraph = rospack.get_path(pkg_name) + "/services/chatter/chatter.link_graph"
 
         impl_name, impl = concert_service_link_graph.load_linkgraph_from_file(address_linkgraph)
         self.linkgraph = impl
+
+        print("Link Graph .............................." % impl)
 
     def resources_alloc_request_callback(self, msg):
         '''
