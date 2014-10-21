@@ -38,6 +38,12 @@ import scheduler_msgs.msg as scheduler_msgs
 import concert_adapter.msg as adapter_msgs
 
 
+# Constants
+NODE_NAME = 'concert_adapter'
+LOGGING_TAG = NODE_NAME + "/adapter"
+DEFAULT_QUEUE_SIZE = 1024
+
+
 class ConcertAdapter:
     __slots__ = [
         'service_name',
@@ -45,12 +51,10 @@ class ConcertAdapter:
         'service_priority',
         'service_id',
         'allocation_timeout',
-        'requester'
+        'requester',
+        'pending_requests',
+        'granted_requests'
     ]
-
-    NODE_NAME = 'concert_adapter'
-    LOGGING_TAG = NODE_NAME + "/adapter"
-    DEFAULT_QUEUE_SIZE = 1024
 
 
     def __init__(self):
@@ -63,20 +67,17 @@ class ConcertAdapter:
         try:
             rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
-            rospy.logerr("%s: Could not locate the scheduler's known resources topic. [%s]" % LOGGING_TAG, str(e))
+            rospy.logerr("%s: Could not locate the scheduler's known_resources topic. [%s]" % LOGGING_TAG, str(e))
             sys.exit(1)
 
 
         # Setting up the requester
-        self.requester = self._setup_requester(self.service_id)
         try:
-            scheduler_requests_topic_name = concert_service_utilities.find_scheduler_requests_topic()
-            #rospy.loginfo("Service : found scheduler [%s][%s]" % (topic_name))
+            scheduler_requests_topic = concert_service_utilities.find_scheduler_requests_topic()
+            self.requester = concert_scheduler_requests.Requester(self.requester_feedback, self.service_id, 0, scheduler_requests_topic, concert_scheduler_requests.common.HEARTBEAT_HZ)
         except rocon_python_comms.NotFoundException as e:
-            rospy.logerr("AdapterSVC : %s" % (str(e)))
-            return  # raise an exception here?
-        frequency = concert_scheduler_requests.common.HEARTBEAT_HZ
-        return concert_scheduler_requests.Requester(self.requester_feedback, uuid, 0, scheduler_requests_topic_name, frequency)
+            rospy.logerr("%s: Could not locate the scheduler's scheduler_requests topic. [%s]" % LOGGING_TAG, str(e))
+            sys.exit(1)
 
         # Starting the SOAP server
         #
@@ -113,6 +114,26 @@ class ConcertAdapter:
         pass
 
 
+    def on_requester_reply_received(self, request_set):
+        for request_id, request in request_set.requests.iteritems():
+
+            if request.msg.status == scheduler_msgs.Request.GRANTED:
+                if request_id in self.pending_requests:
+                    self.pending_requests.remove(request_id)
+                    # Do more...
+                    #
+            elif request.msg.status == scheduler_msgs.Request.CLOSED:
+                self.pending_requests.remove(request_id)
+                self.granted_requests.remove(request_id)
+
+
+    def release_allocated_resources(self):
+        #self.lock.acquire()
+        self.requester.cancel_all()
+        self.requester.send_requests()
+        #self.lock.release()
+
+
     def _gen_resource(self, node, edges):
         """
         To convert linkgraph information for a particular node to a scheduler_msgs.Resource type
@@ -128,13 +149,7 @@ class ConcertAdapter:
         return resource
 
 
-    def release_allocated_resources(self):
-        #self.lock.acquire()
-        self.requester.cancel_all()
-        self.requester.send_requests()
-        #self.lock.release()
-
-
+# Main method to launch the concert_adapter
 if __name__ == '__main__':
     rospy.init_node(NODE_NAME)
     adapter = Adapter()
