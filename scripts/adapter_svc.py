@@ -133,7 +133,7 @@ class AdapterSvc:
         # {name, nodes, topics, actions, edges}
         ########################################################
         lg_yaml = yaml.load(msg.data)
-        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(impl)
+        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(lg_yaml)
 
         print("Link Graph .............................." % impl)
 
