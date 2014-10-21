@@ -36,8 +36,8 @@ import concert_adapter.msg as adapter_msgs
 
 # Constants
 NODE_NAME = 'concert_adapter'
+LOGGING_TAG = NODE_NAME + "/adapter"
 DEFAULT_QUEUE_SIZE = 1024
-ALLOCATION_TIMEOUT = 15.0 # seconds
 
 class Adapter:
     __slots__ = [
@@ -46,14 +46,9 @@ class Adapter:
         'service_priority',
         'service_id',
         'allocation_timeout',
-        'requester',
-        'linkgraph',
-        'lock',
-        'pending_requests',   # a list of request id's pending feedback from the scheduler
-        'allocated_requests'  # dic of { rocon uri : request id } for captured teleop robots.
-        'concert_adapter_service_subscriber',
-        'concert_adapter_command_subscriber'
+        'requester'
     ]
+
 
     def __init__(self):
         """
@@ -61,8 +56,18 @@ class Adapter:
         :return:
         """
         # Starting SOAP server
-        # Setup
-        pass
+
+
+        # Locating the scheduler's KnownResources topic
+        try:
+            known_resources_topic_name = rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
+        except rocon_python_comms.NotFoundException as e:
+            rospy.logerr("%s: Could not locate the scheduler's known resources topic. [%s]" % LOGGING_TAG, str(e))
+            sys.exit(1)
+
+
+        (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
+        self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
 
 
     def allocate(self, linkgraph):
@@ -73,30 +78,15 @@ class Adapter:
         """
 
         result = False
-        print("[concert_adapter/adapter] allocating resources...")
+        print("%s: allocating resources..." % LOGGING_TAG)
         resource_list = []
         for node in linkgraph.nodes:
-            print("[concert_adapter/adapter] allocating the resource: %s" % node)
+            print("%s: allocating the resource [%s]" % LOGGING_TAG, node)
             resource = self.gen_resource(node, linkgraph)
             resource_list.append(resource)
-            resource_request_id = self.requester.new_request(resource_list)
 
-        self.pending_requests.append(resource_request_id)
-        self.requester.send_requests()
-        timeout_time = time.time() + self.allocation_timeout
-
-        while not rospy.is_shutdown() and time.time() < timeout_time:
-            if resource_request_id in self.pending_requests:
-                self.allocated_requests[msg.resource.uri] = resource_request_id
-                result = True
-                break
-            rospy.rostime.wallsleep(0.1)
-
-        if result == False:
-            rospy.logwarn("AdapterSvc : couldn't capture required resource [timed out][%s]" % msg.resource.uri)
-            self.requester.rset[resource_request_id].cancel()
-        else:
-            rospy.loginfo("AdapterSvc : captured resouce [%s][%s]" % (msg.resource.uri, self.allocated_requests[msg.resource.uri]))
+        #
+        # do more...
 
 
     def gen_resource(self, node, edges):
@@ -113,6 +103,7 @@ class Adapter:
         resource.remappings = [rocon_std_msgs.Remapping(e.remap_from, e.remap_to) for e in edges if e.start == node.id or e.finish == node.id]
         return resource
 
+
     def cancel_all_requests(self):
         """
           Exactly as it says! Used typically when shutting down or when
@@ -124,9 +115,7 @@ class Adapter:
         self.requester.send_requests()
         #self.lock.release()
 
-"""
-Main method; To launch the ROS node
-"""
+
 if __name__ == '__main__':
     rospy.init_node(NODE_NAME)
     adapter = Adapter()
