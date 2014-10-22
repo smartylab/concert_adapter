@@ -1,4 +1,4 @@
 <launch>
-  <node pkg="concert_adapter" type="adapter_svc.py" name="adapter_svc" required="true">
+  <node pkg="concert_adapter" type="adapter.py" name="adapter" required="true">
   </node>
 </launch>
