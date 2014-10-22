@@ -31,8 +31,8 @@ import scheduler_msgs.msg as scheduler_msgs
 
 
 # Constants
-NODE_NAME = 'adapter'
-LOGGING_TAG = NODE_NAME + "/adapter"
+NODE_NAME = 'concert_adapter'
+LOGGING_TAG = NODE_NAME + "/concert_adapter"
 DEBUGING_TAG = "[DEBUG]" + LOGGING_TAG
 DEFAULT_QUEUE_SIZE = 1024
 SOAP_SERVER_HOST_NAME = 'localhost'

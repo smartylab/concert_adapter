@@ -1,4 +1,4 @@
-name: ConcertAdapter
+name: concert_adapter
 description: Manage resource allocations. 
 author: Smartylab
 priority: 3
