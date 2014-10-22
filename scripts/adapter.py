@@ -15,6 +15,7 @@ import time
 import unique_id
 import yaml
 
+
 # Import Dependent Modules of ROS/Rocon/Concert
 import rospy
 import rospkg
@@ -24,8 +25,10 @@ import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
 
+
 # Import Dependent Modules of Concert Adapter
 from server import AdapterSOAPServer
+
 
 # Import Messages
 import std_msgs.msg.String
@@ -34,12 +37,8 @@ import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 import concert_adapter.msg as adapter_msgs
 
-# Constants
-NODE_NAME = 'concert_adapter'
-LOGGING_TAG = NODE_NAME + "/adapter"
-DEFAULT_QUEUE_SIZE = 1024
 
-class Adapter:
+class ConcertAdapter:
     __slots__ = [
         'service_name',
         'service_description',
@@ -49,31 +48,45 @@ class Adapter:
         'requester'
     ]
 
+    NODE_NAME = 'concert_adapter'
+    LOGGING_TAG = NODE_NAME + "/adapter"
+    DEFAULT_QUEUE_SIZE = 1024
+
 
     def __init__(self):
-        """
-
-        :return:
-        """
-        # Starting SOAP server
+        # Initialization
+        (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
+        self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
 
 
-        # Locating the scheduler's KnownResources topic
+        # Checking the scheduler's KnownResources topic
         try:
-            known_resources_topic_name = rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
+            rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("%s: Could not locate the scheduler's known resources topic. [%s]" % LOGGING_TAG, str(e))
             sys.exit(1)
 
 
-        (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
-        self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
+        # Setting up the requester
+        self.requester = self._setup_requester(self.service_id)
+        try:
+            scheduler_requests_topic_name = concert_service_utilities.find_scheduler_requests_topic()
+            #rospy.loginfo("Service : found scheduler [%s][%s]" % (topic_name))
+        except rocon_python_comms.NotFoundException as e:
+            rospy.logerr("AdapterSVC : %s" % (str(e)))
+            return  # raise an exception here?
+        frequency = concert_scheduler_requests.common.HEARTBEAT_HZ
+        return concert_scheduler_requests.Requester(self.requester_feedback, uuid, 0, scheduler_requests_topic_name, frequency)
+
+        # Starting the SOAP server
+        #
 
 
-    def allocate(self, linkgraph):
-        """
+    def inquire_resources_to_allocate(self, linkgraph):
+        """ -> allocate_resources
+        Let the requester allocate resources specified in the linkgraph
 
-        :param resource:
+        :param linkgraph:
         :return:
         """
 
@@ -82,14 +95,25 @@ class Adapter:
         resource_list = []
         for node in linkgraph.nodes:
             print("%s: allocating the resource [%s]" % LOGGING_TAG, node)
-            resource = self.gen_resource(node, linkgraph)
+            resource = self._gen_resource(node, linkgraph)
             resource_list.append(resource)
 
         #
-        # do more...
+        # call requester
 
 
-    def gen_resource(self, node, edges):
+    def set_allocated_resources(self, resource, params):
+        """ -> on_resources_allocated
+        Callback method for the requester
+
+        :param resource:
+        :param params:
+        :return:
+        """
+        pass
+
+
+    def _gen_resource(self, node, edges):
         """
         To convert linkgraph information for a particular node to a scheduler_msgs.Resource type
 
@@ -104,12 +128,7 @@ class Adapter:
         return resource
 
 
-    def cancel_all_requests(self):
-        """
-          Exactly as it says! Used typically when shutting down or when
-          it's lost more allocated resources than the minimum required (in which case it
-          cancels everything and starts reissuing new requests).
-        """
+    def release_allocated_resources(self):
         #self.lock.acquire()
         self.requester.cancel_all()
         self.requester.send_requests()
