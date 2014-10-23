@@ -72,9 +72,9 @@ class ConcertAdapter(object):
         # self.start_soap_server()
 
 
-########################################################################################################
+################################################################
 # Preparation for adaptation: SOAP Server
-########################################################################################################
+################################################################
     def start_soap_server(self):
         """
         To launch a SOAP server as a thread
@@ -135,9 +135,9 @@ class ConcertAdapter(object):
         httpd.serve_forever()
 
 
-########################################################################################################
+################################################################
 # Preparation for adaptation: Requester
-########################################################################################################
+################################################################
     def _set_requester(self, uuid):
         """
         To set a requester
@@ -152,9 +152,9 @@ class ConcertAdapter(object):
             sys.exit(1)
 
 
-########################################################################################################
+################################################################
 # Communication between the BPEL engine and the SOAP server
-########################################################################################################
+################################################################
     def on_service_invocation_received(self, linkgraph):
         # To validate the linkgraph
         #
@@ -166,20 +166,21 @@ class ConcertAdapter(object):
         pass
 
 
-########################################################################################################
+################################################################
 # Resource allocation related methods
-########################################################################################################
-    def _on_requester_reply_received(self, request_set):
-        for request_id, request in request_set.requests.iteritems():
-
-            if request.msg.status == scheduler_msgs.Request.GRANTED:
-                if request_id in self.pending_requests:
-                    self.pending_requests.remove(request_id)
-                    # Do more...
-                    #
-            elif request.msg.status == scheduler_msgs.Request.CLOSED:
-                self.pending_requests.remove(request_id)
-                self.granted_requests.remove(request_id)
+################################################################
+    ############### Unused
+    # def _on_requester_reply_received(self, request_set):
+    #     for request_id, request in request_set.requests.iteritems():
+    #
+    #         if request.msg.status == scheduler_msgs.Request.GRANTED:
+    #             if request_id in self.pending_requests:
+    #                 self.pending_requests.remove(request_id)
+    #                 # Do more...
+    #                 #
+    #         elif request.msg.status == scheduler_msgs.Request.CLOSED:
+    #             self.pending_requests.remove(request_id)
+    #             self.granted_requests.remove(request_id)
 
 
     def _inquire_resources_to_allocate(self, linkgraph):
@@ -242,9 +243,9 @@ class ConcertAdapter(object):
         return resource
 
 
-########################################################################################################
+################################################################
 # Tester (will be removed)
-########################################################################################################
+################################################################
 class Tester(threading.Thread):
     __slots__ = [
         'linkgraph'
