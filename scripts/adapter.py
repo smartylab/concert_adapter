@@ -23,9 +23,11 @@ import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
+import concert_scheduler_requests.common as scheduler_common
 
 
 # Import Messages
+from std_msgs.msg import String
 import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 
@@ -47,7 +49,7 @@ class ConcertAdapter(object):
         'service_priority',
         'service_id',
         'allocation_timeout',
-        'requester'
+        'requester',
     ]
 
 
@@ -55,14 +57,17 @@ class ConcertAdapter(object):
         # Initialization
         (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
         self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
+
         # Checking the scheduler's KnownResources topic
         try:
             rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("Could not locate the scheduler's known_resources topic. [%s]" % str(e))
             sys.exit(1)
+
         # Setting up the requester
         self._set_requester(self.service_id)
+
         # Starting the SOAP server
         # self.start_soap_server()
 
@@ -141,7 +146,7 @@ class ConcertAdapter(object):
         """
         try:
             scheduler_requests_topic = concert_service_utilities.find_scheduler_requests_topic()
-            self.requester = concert_scheduler_requests.Requester(self._on_requester_reply_received, uuid=self.service_id, topic=scheduler_requests_topic)
+            self.requester = concert_scheduler_requests.Requester(self._on_resource_allocated, uuid=self.service_id, topic=scheduler_requests_topic)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("Could not locate the scheduler's scheduler_requests topic. [%s]" % str(e))
             sys.exit(1)
@@ -185,7 +190,7 @@ class ConcertAdapter(object):
         :return:
         """
 
-        rospy.loginfo("Allocating resources with the linkgraph:\n%s" % linkgraph)
+        rospy.loginfo("Allocating resources with the linkgraph...")
 
         result = False
         resource_list = []
@@ -195,8 +200,8 @@ class ConcertAdapter(object):
             resource_list.append(resource)
 
         # Calling requester
-        rospy.loginfo("Requesting the loaded resources:\n%s" % resource_list)
-        request_id = self.requester.new_request(resource_list)
+        rospy.loginfo("Requesting the loaded resources...")
+        request_id = self.requester.new_request(resource_list, uuid=self.service_id)
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
 
@@ -280,7 +285,7 @@ class Tester(threading.Thread):
 
     def run(self):
         time.sleep(5)
-        rospy.loginfo("Allocating with the sample linkgraph")
+        rospy.loginfo("Allocating with the sample linkgraph...")
         adapter._inquire_resources_to_allocate(self.linkgraph)
 
 
