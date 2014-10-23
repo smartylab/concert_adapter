@@ -31,12 +31,12 @@ import scheduler_msgs.msg as scheduler_msgs
 
 
 # Constants
+import time
+
 NODE_NAME = 'concert_adapter'
-LOGGING_TAG = NODE_NAME + "/concert_adapter"
-DEBUGING_TAG = "[DEBUG]" + LOGGING_TAG
 DEFAULT_QUEUE_SIZE = 1024
-SOAP_SERVER_HOST_NAME = 'localhost'
-SOAP_SERVER_PORT_NUMBER = '8008'
+SOAP_SERVER_ADDRESS = 'localhost'
+SOAP_SERVER_PORT = '8008'
 
 
 class ConcertAdapter(object):
@@ -59,17 +59,17 @@ class ConcertAdapter(object):
         try:
             rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
-            rospy.logerr("%s: Could not locate the scheduler's known_resources topic. [%s]" % (LOGGING_TAG, str(e)))
+            rospy.logerr("Could not locate the scheduler's known_resources topic. [%s]" % str(e))
             sys.exit(1)
         # Setting up the requester
         self._set_requester(self.service_id)
         # Starting the SOAP server
-        self.start_soap_server
+        # self.start_soap_server()
 
 
-#####################################################################
+########################################################################################################
 # Preparation for adaptation: SOAP Server
-#####################################################################
+########################################################################################################
     def start_soap_server(self):
         """
         To launch a SOAP server as a thread
@@ -83,7 +83,7 @@ class ConcertAdapter(object):
         To launch a SOAP server for the adapter
         :return:
         """
-        dispatcher = SoapDispatcher('op_adapter_soap_disp', location = self.address, action = self.address,
+        dispatcher = SoapDispatcher('concer_adapter_soap_server', location = SOAP_SERVER_ADDRESS, action = SOAP_SERVER_ADDRESS,
                 namespace = "http://smartylab.co.kr/products/op/adapter", prefix="tns", trace = True, ns = True)
         dispatcher.register_function('adapt', self.on_service_invocation_received, returns={'out': str},
             args={
@@ -122,17 +122,17 @@ class ConcertAdapter(object):
         )
         # Single Node Registeration
         #
-        print("%s: Starting a SOAP server...", LOGGING_TAG)
-        httpd = HTTPServer(("", int(SOAP_SERVER_PORT_NUMBER)), SOAPHandler)
+        rospy.loginfo("Starting a SOAP server...")
+        httpd = HTTPServer(("", int(SOAP_SERVER_PORT)), SOAPHandler)
         httpd.dispatcher = dispatcher
 
-        print("%s: The SOAP server started. [%s:%s]" % (LOGGING_TAG, SOAP_SERVER_HOST_NAME, SOAP_SERVER_PORT_NUMBER))
+        rospy.loginfo("The SOAP server started. [%s:%s]" % (SOAP_SERVER_ADDRESS, SOAP_SERVER_PORT))
         httpd.serve_forever()
 
 
-#####################################################################
+########################################################################################################
 # Preparation for adaptation: Requester
-#####################################################################
+########################################################################################################
     def _set_requester(self, uuid):
         """
         To set a requester
@@ -143,27 +143,27 @@ class ConcertAdapter(object):
             scheduler_requests_topic = concert_service_utilities.find_scheduler_requests_topic()
             self.requester = concert_scheduler_requests.Requester(self._on_requester_reply_received, uuid=self.service_id, topic=scheduler_requests_topic)
         except rocon_python_comms.NotFoundException as e:
-            rospy.logerr("%s: Could not locate the scheduler's scheduler_requests topic. [%s]" % LOGGING_TAG, str(e))
+            rospy.logerr("Could not locate the scheduler's scheduler_requests topic. [%s]" % str(e))
             sys.exit(1)
 
 
-#####################################################################
+########################################################################################################
 # Communication between the BPEL engine and the SOAP server
-#####################################################################
-    def _on_service_invocation_received(self, linkgraph):
+########################################################################################################
+    def on_service_invocation_received(self, linkgraph):
         # To validate the linkgraph
         #
         # To allocate resources
         self._inquire_resources_to_allocate(linkgraph)
 
 
-    def _on_single_node_service_invocation_received(self, node):
+    def on_single_node_service_invocation_received(self, node):
         pass
 
 
-#####################################################################
+########################################################################################################
 # Resource allocation related methods
-#####################################################################
+########################################################################################################
     def _on_requester_reply_received(self, request_set):
         for request_id, request in request_set.requests.iteritems():
 
@@ -185,23 +185,24 @@ class ConcertAdapter(object):
         :return:
         """
 
-        print("%s: linkgraph [%s]" % (DEBUGING_TAG, linkgraph))
+        rospy.loginfo("Allocating resources with the linkgraph:\n%s" % linkgraph)
 
         result = False
-        print("%s: allocating resources..." % LOGGING_TAG)
         resource_list = []
         for node in linkgraph.nodes:
-            print("%s: allocating the resource [%s]" % LOGGING_TAG, node)
-            resource = self._gen_resource(node, linkgraph)
+            rospy.loginfo("Allocating the resource:\n%s" % node)
+            resource = self._gen_resource(node, linkgraph.edges)
             resource_list.append(resource)
 
         # Calling requester
-        self.requester.new_request(resource_list)
+        rospy.loginfo("Requesting the loaded resources:\n%s" % resource_list)
+        request_id = self.requester.new_request(resource_list)
+        rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
 
 
     def _on_resource_allocated(self, msg):
-        pass
+        rospy.loginfo("The resource is allocated:\n%s" % msg)
 
 
     def _call_resource(self, resource, params):
@@ -236,11 +237,16 @@ class ConcertAdapter(object):
         return resource
 
 
-#####################################################################
+########################################################################################################
 # Tester (will be removed)
-#####################################################################
+########################################################################################################
 class Tester(threading.Thread):
+    __slots__ = [
+        'linkgraph'
+    ]
+
     def __init__(self, adapter):
+        threading.Thread.__init__(self)
         chatter_linkgraph_yaml = yaml.load("""
             name: "Chatter Concert"
             nodes:
@@ -268,22 +274,24 @@ class Tester(threading.Thread):
                 remap_to: /conversation/chatter
         """)
         impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(chatter_linkgraph_yaml)
-        adapter._inquire_resources_to_allocate(impl)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
+        self.linkgraph = impl
 
 
     def run(self):
-        pass
+        time.sleep(5)
+        rospy.loginfo("Allocating with the sample linkgraph")
+        adapter._inquire_resources_to_allocate(self.linkgraph)
 
 
-#####################################################################
+########################################################################################################
 # Main method to launch the adapter
-#####################################################################
+########################################################################################################
 if __name__ == '__main__':
-    print("%s: Starting the concert adapter..." % LOGGING_TAG)
-    rospy.loginfo("%s: Starting the concert adapter..." % LOGGING_TAG)
+    rospy.loginfo("Starting the concert adapter...")
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    #tester = Tester(adapter) # to be removed
+    Tester(adapter).start() # to be removed
     rospy.spin()
     if not rospy.is_shutdown():
         adapter.release_allocated_resources()
