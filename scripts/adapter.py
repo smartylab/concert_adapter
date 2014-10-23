@@ -64,19 +64,26 @@ class ConcertAdapter(object):
         # Setting up the requester
         self._set_requester(self.service_id)
         # Starting the SOAP server
-        # self.start_soap_server()
+        self._start_soap_server()
+
+    def __del__(self):
+        rospy.loginfo("Finishing the concert adapter...")
+        self._stop_soap_server()
 
 
 ########################################################################################################
 # Preparation for adaptation: SOAP Server
 ########################################################################################################
-    def start_soap_server(self):
+    def _start_soap_server(self):
         """
         To launch a SOAP server as a thread
         :return:
         """
         threading.Thread(target=self._soap_server_worker).start()
 
+    def _stop_soap_server(self):
+        self.soap_server = threading.current_thread()
+        self.soap_server.join(1)
 
     def _soap_server_worker(self):
         """
@@ -84,8 +91,10 @@ class ConcertAdapter(object):
         :return:
         """
         dispatcher = SoapDispatcher('concer_adapter_soap_server', location = SOAP_SERVER_ADDRESS, action = SOAP_SERVER_ADDRESS,
-                namespace = "http://smartylab.co.kr/products/op/adapter", prefix="tns", trace = True, ns = True)
-        dispatcher.register_function('adapt', self.on_service_invocation_received, returns={'out': str},
+                namespace = "http://smartylab.co.kr/products/op/adapter", prefix="tns", ns = True)
+
+        # To register a method for LinkGraph Service Invocation
+        dispatcher.register_function('on_service_invocation_received', self.on_service_invocation_received, returns={'out': str},
             args={
                 'LinkGraph': {
                     'name': str,
@@ -93,8 +102,6 @@ class ConcertAdapter(object):
                         'Node':{
                             'id': str,
                             'uri': str,
-                            'min': int,
-                            'max': int,
                             'parameters': [{
                                 'parameter': {
                                     'message': str,
@@ -120,12 +127,29 @@ class ConcertAdapter(object):
                 }
             }
         )
-        # Single Node Registeration
-        #
+
+        # To register a method for Single Node Service Invocation
+        dispatcher.register_function('on_single_node_service_invocation_received', self.on_single_node_service_invocation_received, returns={'out': str},
+            args={
+                'Node':{
+                    'id': str,
+                    'uri': str,
+                    'parameters': [{
+                        'parameter': {
+                            'message': str,
+                            'frequency': int
+                        }
+                    }]
+                }
+            }
+        )
+
+        # To create SOAP Server
         rospy.loginfo("Starting a SOAP server...")
         httpd = HTTPServer(("", int(SOAP_SERVER_PORT)), SOAPHandler)
         httpd.dispatcher = dispatcher
 
+        # To execute SOAP Server
         rospy.loginfo("The SOAP server started. [%s:%s]" % (SOAP_SERVER_ADDRESS, SOAP_SERVER_PORT))
         httpd.serve_forever()
 
@@ -150,11 +174,14 @@ class ConcertAdapter(object):
 ########################################################################################################
 # Communication between the BPEL engine and the SOAP server
 ########################################################################################################
-    def on_service_invocation_received(self, linkgraph):
+    def on_service_invocation_received(self, LinkGraph):
         # To validate the linkgraph
         #
         # To allocate resources
-        self._inquire_resources_to_allocate(linkgraph)
+        rospy.loginfo("Data in LinkGraph...")
+        rospy.loginfo(LinkGraph)
+        # self._inquire_resources_to_allocate(linkgraph)
+        return "Hi"
 
 
     def on_single_node_service_invocation_received(self, node):
@@ -291,7 +318,7 @@ if __name__ == '__main__':
     rospy.loginfo("Starting the concert adapter...")
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    Tester(adapter).start() # to be removed
+    # Tester(adapter).start() # to be removed
     rospy.spin()
     if not rospy.is_shutdown():
         adapter.release_allocated_resources()

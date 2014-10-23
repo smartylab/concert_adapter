@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions name="concer_adapter_soap_server" targetNamespace="http://smartylab.co.kr/products/op/adapter" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://smartylab.co.kr/products/op/adapter" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<wsdl:documentation xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"/>
+	<wsdl:types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://smartylab.co.kr/products/op/adapter" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+			<xsd:element name="on_service_invocation_received">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="LinkGraph" type="tns:on_service_invocation_receivedLinkGraph"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:complexType name="on_service_invocation_receivedLinkGraph">
+				<xsd:all>
+					<xsd:element name="name" type="xsd:string"/>
+				    <xsd:element name="nodes" type="tns:ArrayOfon_service_invocation_receivedLinkGraphnodes"/>
+					<xsd:element name="topics" type="tns:ArrayOfon_service_invocation_receivedLinkGraphtopics"/>
+					<xsd:element name="edges" type="tns:ArrayOfon_service_invocation_receivedLinkGraphedges"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphnodes">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="2" name="Node" type="tns:ArrayOfon_service_invocation_receivedLinkGraphnodesNode"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphnodesNode">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+					<xsd:element name="uri" type="xsd:string"/>
+					<xsd:element name="parameters" type="tns:ArrayOfArrayOfon_service_invocation_receivedLinkGraphnodesNodeparameters"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfArrayOfon_service_invocation_receivedLinkGraphnodesNodeparameters">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="parameter" type="tns:ArrayOfArrayOfon_service_invocation_receivedLinkGraphnodesNodeparametersparameter"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfArrayOfon_service_invocation_receivedLinkGraphnodesNodeparametersparameter">
+				<xsd:all>
+					<xsd:element name="message" type="xsd:string"/>
+					<xsd:element name="frequency" type="xsd:int"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphtopics">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="1" name="Topic" type="tns:ArrayOfon_service_invocation_receivedLinkGraphtopicsTopic"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphtopicsTopic">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+					<xsd:element name="type" type="xsd:string"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphedges">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="1" name="Edge" type="tns:ArrayOfon_service_invocation_receivedLinkGraphedgesEdge"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_service_invocation_receivedLinkGraphedgesEdge">
+				<xsd:all>
+					<xsd:element name="start" type="xsd:string"/>
+					<xsd:element name="finish" type="xsd:string"/>
+					<xsd:element name="remap_from" type="xsd:string"/>
+					<xsd:element name="remap_to" type="xsd:string"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:element name="on_service_invocation_receivedResponse">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="out" type="xsd:string"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="on_single_node_service_invocation_received">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="Node" type="tns:on_single_node_service_invocation_receivedNode"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:complexType name="on_single_node_service_invocation_receivedNode">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+					<xsd:element name="uri" type="xsd:string"/>
+					<xsd:element name="parameters" type="tns:ArrayOfon_single_node_service_invocation_receivedNodeparameters"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_single_node_service_invocation_receivedNodeparameters">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="parameter" type="tns:ArrayOfon_single_node_service_invocation_receivedNodeparametersparameter"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfon_single_node_service_invocation_receivedNodeparametersparameter">
+				<xsd:all>
+					<xsd:element name="message" type="xsd:string"/>
+					<xsd:element name="frequency" type="xsd:int"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:element name="on_single_node_service_invocation_receivedResponse">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="out" type="xsd:string"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:schema>
+	</wsdl:types>
+
+	<wsdl:message name="on_service_invocation_receivedInput">
+		<wsdl:part element="tns:on_service_invocation_received" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="on_service_invocation_receivedOutput">
+		<wsdl:part element="tns:on_service_invocation_receivedResponse" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="on_single_node_service_invocation_receivedInput">
+		<wsdl:part element="tns:on_single_node_service_invocation_received" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="on_single_node_service_invocation_receivedOutput">
+		<wsdl:part element="tns:on_single_node_service_invocation_receivedResponse" name="parameters"/>
+	</wsdl:message>
+	<wsdl:portType name="concer_adapter_soap_serverPortType">
+		<wsdl:operation name="on_service_invocation_received">
+			<wsdl:input message="tns:on_service_invocation_receivedInput"/>
+			<wsdl:output message="tns:on_service_invocation_receivedOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="on_single_node_service_invocation_received">
+			<wsdl:input message="tns:on_single_node_service_invocation_receivedInput"/>
+			<wsdl:output message="tns:on_single_node_service_invocation_receivedOutput"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:binding name="concer_adapter_soap_serverBinding" type="tns:concer_adapter_soap_serverPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="on_service_invocation_received">
+			<soap:operation soapAction="localhoston_service_invocation_received" style="document"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="on_single_node_service_invocation_received">
+			<soap:operation soapAction="localhoston_single_node_service_invocation_received" style="document"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
+	<wsdl:service name="concer_adapter_soap_serverService">
+		<wsdl:documentation/>
+		<wsdl:port binding="tns:concer_adapter_soap_serverBinding" name="concer_adapter_soap_server">
+			<soap:address location="localhost"/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>
