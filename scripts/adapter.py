@@ -79,15 +79,6 @@ class ConcertAdapter(object):
         threading.Thread(target=self._start_soap_server).start()
 
 
-    def __del__(self):
-        """
-
-        :return:
-        """
-        rospy.loginfo("Finishing the concert adapter...")
-        self._stop_soap_server()
-
-
 ########################################################################################################
 # Preparation for adaptation: SOAP Server
 ########################################################################################################
@@ -164,7 +155,7 @@ class ConcertAdapter(object):
         self.httpd.serve_forever()
 
 
-    def _stop_soap_server(self):
+    def stop_soap_server(self):
         '''
         To stop SOAP Server
         :return:
@@ -407,9 +398,12 @@ class Tester(threading.Thread):
 ########################################################################################################
 if __name__ == '__main__':
     rospy.loginfo("Starting the concert adapter...")
+
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
     # Tester(adapter).start() # to be removed
     rospy.spin()
-    if not rospy.is_shutdown():
+
+    if rospy.is_shutdown():
+        adapter.stop_soap_server()
         adapter.release_allocated_resources()
