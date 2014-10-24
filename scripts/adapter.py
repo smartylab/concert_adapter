@@ -72,6 +72,7 @@ class ConcertAdapter(object):
         self._set_requester(self.service_id)
         self.pending_requests = []
 
+
         # Starting the SOAP server
         # self.start_soap_server()
 
@@ -155,7 +156,7 @@ class ConcertAdapter(object):
         self.httpd.serve_forever()
 
 
-    def stop_soap_server(self):
+    def _stop_soap_server(self):
         '''
         To stop SOAP Server
         :return:
@@ -197,7 +198,7 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
         # LinkGraphYAML = yaml.load(LinkGraph)
-        lg_name, lg = self.convert_to_linkgraph(LinkGraph)
+        lg_name, lg = self._convert_to_linkgraph(LinkGraph)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
         self.linkgraph = lg
 
@@ -219,14 +220,22 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
 
-        lg_name, lg = self.convert_to_linkgraph(Node)
+        lg_name, lg = self._convert_to_linkgraph(Node)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
         self.linkgraph = lg
 
         return "Single Node Invocation Success"
 
 
-    def convert_to_linkgraph(self, linkgraph):
+    def _wait_resource_allocation_finish(self):
+        self.is_finished
+
+        while self.is_finished:
+            time.sleep(1)
+
+
+
+    def _convert_to_linkgraph(self, linkgraph):
         """
             Loading a linkgraph from yaml and returns its name, and linkgraph
 
@@ -405,5 +414,5 @@ if __name__ == '__main__':
     rospy.spin()
 
     if rospy.is_shutdown():
-        adapter.stop_soap_server()
+        adapter._stop_soap_server()
         adapter.release_allocated_resources()
