@@ -23,10 +23,15 @@ import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
+<<<<<<< HEAD
 import concert_msgs.msg as concert_msgs
+=======
+import concert_scheduler_requests.common as scheduler_common
+>>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
 
 
 # Import Messages
+from std_msgs.msg import String
 import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 
@@ -49,8 +54,11 @@ class ConcertAdapter(object):
         'service_id',
         'allocation_timeout',
         'requester',
+<<<<<<< HEAD
         'httpd',
         'linkgraph'
+=======
+>>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
     ]
 
 
@@ -68,11 +76,24 @@ class ConcertAdapter(object):
 
         # Setting up the requester
         self._set_requester(self.service_id)
+<<<<<<< HEAD
+=======
+
+        # Starting the SOAP server
+        # self.start_soap_server()
+>>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
 
         # Starting a SOAP server as a thread
         threading.Thread(target=self._start_soap_server).start()
 
+<<<<<<< HEAD
     def __del__(self):
+=======
+################################################################
+# Preparation for adaptation: SOAP Server
+################################################################
+    def start_soap_server(self):
+>>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
         """
 
         :return:
@@ -166,9 +187,9 @@ class ConcertAdapter(object):
 
 
 
-########################################################################################################
+################################################################
 # Preparation for adaptation: Requester
-########################################################################################################
+################################################################
     def _set_requester(self, uuid):
         """
         To set a requester
@@ -177,14 +198,15 @@ class ConcertAdapter(object):
         """
         try:
             scheduler_requests_topic = concert_service_utilities.find_scheduler_requests_topic()
-            self.requester = concert_scheduler_requests.Requester(self._on_requester_reply_received, uuid=self.service_id, topic=scheduler_requests_topic)
+            self.requester = concert_scheduler_requests.Requester(self._on_resource_allocated, uuid=self.service_id, topic=scheduler_requests_topic)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("Could not locate the scheduler's scheduler_requests topic. [%s]" % str(e))
             sys.exit(1)
 
 
-########################################################################################################
+################################################################
 # Communication between the BPEL engine and the SOAP server
+<<<<<<< HEAD
 ########################################################################################################
     def receive_service_invocation(self, LinkGraph):
         """
@@ -203,6 +225,12 @@ class ConcertAdapter(object):
         rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
         self.linkgraph = lg
 
+=======
+################################################################
+    def on_service_invocation_received(self, linkgraph):
+        # To validate the linkgraph
+        #
+>>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
         # To allocate resources
         # self._inquire_resources_to_allocate(linkgraph)
         return "Hi"
@@ -276,20 +304,21 @@ class ConcertAdapter(object):
 
         return name, lg
 
-########################################################################################################
+################################################################
 # Resource allocation related methods
-########################################################################################################
-    def _on_requester_reply_received(self, request_set):
-        for request_id, request in request_set.requests.iteritems():
-
-            if request.msg.status == scheduler_msgs.Request.GRANTED:
-                if request_id in self.pending_requests:
-                    self.pending_requests.remove(request_id)
-                    # Do more...
-                    #
-            elif request.msg.status == scheduler_msgs.Request.CLOSED:
-                self.pending_requests.remove(request_id)
-                self.granted_requests.remove(request_id)
+################################################################
+    ############### Unused
+    # def _on_requester_reply_received(self, request_set):
+    #     for request_id, request in request_set.requests.iteritems():
+    #
+    #         if request.msg.status == scheduler_msgs.Request.GRANTED:
+    #             if request_id in self.pending_requests:
+    #                 self.pending_requests.remove(request_id)
+    #                 # Do more...
+    #                 #
+    #         elif request.msg.status == scheduler_msgs.Request.CLOSED:
+    #             self.pending_requests.remove(request_id)
+    #             self.granted_requests.remove(request_id)
 
 
     def _inquire_resources_to_allocate(self, linkgraph):
@@ -300,7 +329,7 @@ class ConcertAdapter(object):
         :return:
         """
 
-        rospy.loginfo("Allocating resources with the linkgraph:\n%s" % linkgraph)
+        rospy.loginfo("Allocating resources with the linkgraph...")
 
         result = False
         resource_list = []
@@ -310,8 +339,8 @@ class ConcertAdapter(object):
             resource_list.append(resource)
 
         # Calling requester
-        rospy.loginfo("Requesting the loaded resources:\n%s" % resource_list)
-        request_id = self.requester.new_request(resource_list)
+        rospy.loginfo("Requesting the loaded resources...")
+        request_id = self.requester.new_request(resource_list, uuid=self.service_id)
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
 
@@ -352,9 +381,9 @@ class ConcertAdapter(object):
         return resource
 
 
-########################################################################################################
+################################################################
 # Tester (will be removed)
-########################################################################################################
+################################################################
 class Tester(threading.Thread):
     __slots__ = [
         'linkgraph'
@@ -395,8 +424,8 @@ class Tester(threading.Thread):
 
 
     def run(self):
-        time.sleep(5)
-        rospy.loginfo("Allocating with the sample linkgraph")
+        time.sleep(60)
+        rospy.loginfo("Allocating with the sample linkgraph...")
         adapter._inquire_resources_to_allocate(self.linkgraph)
 
 
