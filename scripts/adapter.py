@@ -395,7 +395,6 @@ class Tester(threading.Thread):
         self.linkgraph = impl
 
 
-
     def run(self):
         time.sleep(60)
         rospy.loginfo("Allocating with the sample linkgraph...")
