@@ -39,6 +39,7 @@ NODE_NAME = 'concert_adapter'
 DEFAULT_QUEUE_SIZE = 1024
 SOAP_SERVER_ADDRESS = 'localhost'
 SOAP_SERVER_PORT = '8008'
+ALLOCATION_CHECKING_DURATION = 1 # seconds
 
 
 class ConcertAdapter(object):
@@ -51,7 +52,6 @@ class ConcertAdapter(object):
         'allocation_timeout',
         'requester',
         'httpd',
-        'linkgraph',
         'pending_requests'
     ]
 
@@ -71,10 +71,6 @@ class ConcertAdapter(object):
         # Setting up the requester
         self._set_requester(self.service_id)
         self.pending_requests = []
-
-
-        # Starting the SOAP server
-        # self.start_soap_server()
 
         # Starting a SOAP server as a thread
         threading.Thread(target=self._start_soap_server).start()
@@ -192,19 +188,19 @@ class ConcertAdapter(object):
         :return string:
         """
 
-        # To validate LinkGraph
-        rospy.loginfo("Data in LinkGraph...")
-        rospy.loginfo(LinkGraph)
+        # Converting input data (LinkGraph)
+        lg_name, linkgraph = self.convert_to_linkgraph(LinkGraph)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
-        rospy.loginfo("Convert...")
-        # LinkGraphYAML = yaml.load(LinkGraph)
-        lg_name, lg = self._convert_to_linkgraph(LinkGraph)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
-        self.linkgraph = lg
+        # Requesting resource allocations
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
-        # To allocate resources
-        # self._inquire_resources_to_allocate(linkgraph)
         return "Hi"
+
+
+    def wait_allocation(self, request_id):
+        while(request_id in self.pending_requests):
+            time.sleep(ALLOCATION_CHECKING_DURATION)
 
 
     def receive_single_node_service_invocation(self, Node):
@@ -214,15 +210,12 @@ class ConcertAdapter(object):
         :return:
         '''
 
-        # To validate Node
-        rospy.loginfo("Data in Node...")
-        rospy.loginfo(Node)
+        # Converting input data to LinkGraph
+        lg_name, linkgraph = self.convert_to_linkgraph(Node)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
-        rospy.loginfo("Convert...")
-
-        lg_name, lg = self._convert_to_linkgraph(Node)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
-        self.linkgraph = lg
+        # Requesting resource allocations
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Single Node Invocation Success"
 
@@ -281,6 +274,7 @@ class ConcertAdapter(object):
 
         return name, lg
 
+
 ################################################################
 # Resource allocation related methods
 ################################################################
@@ -315,11 +309,17 @@ class ConcertAdapter(object):
         return request_id
 
 
-    def _on_resource_allocated(self, msg):
-        rospy.loginfo("The resource is allocated:\n%s" % msg)
+    def _on_resource_allocated(self, rset):
+        """
+        To get a notification from requester when resources are allocated
+        :param rset: a set of requests
+        :return:
+        """
+        rospy.loginfo("The resource is allocated:\n%s" % rset)
         # Removing the request from pending_requests
-        if msg.requests.status == scheduler_msgs.Request.GRANTED:
-            self.pending_requests.remove(msg.request_id)
+        for request_id, request in rset.requests.iteritems():
+            if request.msg.status == scheduler_msgs.Request.GRANTED:
+                self.pending_requests.remove(request_id)
 
 
     def _call_resource(self, resource, params):
@@ -395,9 +395,8 @@ class Tester(threading.Thread):
         self.linkgraph = impl
 
 
-
     def run(self):
-        time.sleep(60)
+        time.sleep(10)
         rospy.loginfo("Allocating with the sample linkgraph...")
         adapter._inquire_resources_to_allocate(self.linkgraph)
 
@@ -410,7 +409,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    # Tester(adapter).start() # to be removed
+    Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
