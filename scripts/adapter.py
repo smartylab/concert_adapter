@@ -272,6 +272,7 @@ class ConcertAdapter(object):
 
         return name, lg
 
+
 ################################################################
 # Resource allocation related methods
 ################################################################
