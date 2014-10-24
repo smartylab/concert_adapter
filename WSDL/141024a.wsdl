@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions name="concert_adapter_soap_server" targetNamespace="http://smartylab.co.kr/products/op/adapter" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:tns="http://smartylab.co.kr/products/op/adapter" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+	<wsdl:documentation xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"/>
+	<wsdl:types>
+		<xsd:schema elementFormDefault="qualified" targetNamespace="http://smartylab.co.kr/products/op/adapter" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+			<xsd:element name="invoke_adapter">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="LinkGraph" type="tns:invoke_adapterLinkGraph"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:complexType name="invoke_adapterLinkGraph">
+				<xsd:all>
+					<xsd:element name="name" type="xsd:string"/>
+                    <xsd:element name="nodes" type="tns:ArrayOfinvoke_adapterLinkGraphnodes"/>
+					<xsd:element name="topics" type="tns:ArrayOfinvoke_adapterLinkGraphtopics"/>
+                    <xsd:element name="edges" type="tns:ArrayOfinvoke_adapterLinkGraphedges"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphnodes">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="2" name="Node" type="tns:ArrayOfinvoke_adapterLinkGraphnodesNode"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphnodesNode">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+					<xsd:element name="uri" type="xsd:string"/>
+                    <xsd:element name="parameters" type="tns:ArrayOfArrayOfinvoke_adapterLinkGraphnodesNodeparameters"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfArrayOfinvoke_adapterLinkGraphnodesNodeparameters">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="parameter" type="tns:ArrayOfArrayOfinvoke_adapterLinkGraphnodesNodeparametersparameter"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfArrayOfinvoke_adapterLinkGraphnodesNodeparametersparameter">
+				<xsd:all>
+					<xsd:element name="message" type="xsd:string"/>
+					<xsd:element name="frequency" type="xsd:int"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphtopics">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="1" name="Topic" type="tns:ArrayOfinvoke_adapterLinkGraphtopicsTopic"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphtopicsTopic">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+                    <xsd:element name="type" type="xsd:string"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphedges">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="1" name="Edge" type="tns:ArrayOfinvoke_adapterLinkGraphedgesEdge"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapterLinkGraphedgesEdge">
+				<xsd:all>
+					<xsd:element name="start" type="xsd:string"/>
+					<xsd:element name="finish" type="xsd:string"/>
+					<xsd:element name="remap_from" type="xsd:string"/>
+					<xsd:element name="remap_to" type="xsd:string"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:element name="invoke_adapterResponse">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="out" type="xsd:string"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="invoke_adapter_single_node">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="Node" type="tns:invoke_adapter_single_nodeNode"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:complexType name="invoke_adapter_single_nodeNode">
+				<xsd:all>
+					<xsd:element name="id" type="xsd:string"/>
+					<xsd:element name="uri" type="xsd:string"/>
+                    <xsd:element name="parameters" type="tns:ArrayOfinvoke_adapter_single_nodeNodeparameters"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapter_single_nodeNodeparameters">
+				<xsd:sequence>
+					<xsd:element maxOccurs="unbounded" minOccurs="0" name="parameter" type="tns:ArrayOfinvoke_adapter_single_nodeNodeparametersparameter"/>
+				</xsd:sequence>
+			</xsd:complexType>
+			<xsd:complexType name="ArrayOfinvoke_adapter_single_nodeNodeparametersparameter">
+				<xsd:all>
+					<xsd:element name="message" type="xsd:string"/>
+					<xsd:element name="frequency" type="xsd:int"/>
+				</xsd:all>
+			</xsd:complexType>
+			<xsd:element name="invoke_adapter_single_nodeResponse">
+				<xsd:complexType>
+					<xsd:all>
+						<xsd:element name="out" type="xsd:string"/>
+					</xsd:all>
+				</xsd:complexType>
+			</xsd:element>
+		</xsd:schema>
+		
+    
+	</wsdl:types>
+	
+
+
+	<wsdl:message name="invoke_adapterInput">
+		<wsdl:part element="tns:invoke_adapter" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="invoke_adapterOutput">
+		<wsdl:part element="tns:invoke_adapterResponse" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="invoke_adapter_single_nodeInput">
+		<wsdl:part element="tns:invoke_adapter_single_node" name="parameters"/>
+	</wsdl:message>
+	<wsdl:message name="invoke_adapter_single_nodeOutput">
+		<wsdl:part element="tns:invoke_adapter_single_nodeResponse" name="parameters"/>
+	</wsdl:message>
+	<wsdl:portType name="concert_adapter_soap_serverPortType">
+		<wsdl:operation name="invoke_adapter">
+			<wsdl:documentation>
+        To receive a service invocation including LinkGraph
+        :param LinkGraph:
+        :return string:
+        </wsdl:documentation>
+			<wsdl:input message="tns:invoke_adapterInput"/>
+			<wsdl:output message="tns:invoke_adapterOutput"/>
+		</wsdl:operation>
+		<wsdl:operation name="invoke_adapter_single_node">
+			<wsdl:input message="tns:invoke_adapter_single_nodeInput"/>
+			<wsdl:output message="tns:invoke_adapter_single_nodeOutput"/>
+		</wsdl:operation>
+	</wsdl:portType>
+	<wsdl:binding name="concert_adapter_soap_serverBinding" type="tns:concert_adapter_soap_serverPortType">
+		<soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+		<wsdl:operation name="invoke_adapter">
+			<soap:operation soapAction="http://smartylab.co.kr/products/op/adapter" style="document"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+		<wsdl:operation name="invoke_adapter_single_node">
+			<soap:operation soapAction="http://smartylab.co.kr/products/op/adapter" style="document"/>
+			<wsdl:input>
+				<soap:body use="literal"/>
+			</wsdl:input>
+			<wsdl:output>
+				<soap:body use="literal"/>
+			</wsdl:output>
+		</wsdl:operation>
+	</wsdl:binding>
+	<wsdl:service name="concert_adapter_soap_serverService">
+		<wsdl:documentation/>
+		<wsdl:port binding="tns:concert_adapter_soap_serverBinding" name="concert_adapter_soap_server">
+			<soap:address location="http://localhost:8008"/>
+		</wsdl:port>
+	</wsdl:service>
+</wsdl:definitions>

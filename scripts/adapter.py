@@ -23,6 +23,7 @@ import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
+import concert_msgs.msg as concert_msgs
 
 
 # Import Messages
@@ -47,7 +48,9 @@ class ConcertAdapter(object):
         'service_priority',
         'service_id',
         'allocation_timeout',
-        'requester'
+        'requester',
+        'httpd',
+        'linkgraph'
     ]
 
 
@@ -55,18 +58,25 @@ class ConcertAdapter(object):
         # Initialization
         (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
         self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
+
         # Checking the scheduler's KnownResources topic
         try:
             rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("Could not locate the scheduler's known_resources topic. [%s]" % str(e))
             sys.exit(1)
+
         # Setting up the requester
         self._set_requester(self.service_id)
-        # Starting the SOAP server
-        self._start_soap_server()
+
+        # Starting a SOAP server as a thread
+        threading.Thread(target=self._start_soap_server).start()
 
     def __del__(self):
+        """
+
+        :return:
+        """
         rospy.loginfo("Finishing the concert adapter...")
         self._stop_soap_server()
 
@@ -76,25 +86,14 @@ class ConcertAdapter(object):
 ########################################################################################################
     def _start_soap_server(self):
         """
-        To launch a SOAP server as a thread
-        :return:
-        """
-        threading.Thread(target=self._soap_server_worker).start()
-
-    def _stop_soap_server(self):
-        self.soap_server = threading.current_thread()
-        self.soap_server.join(1)
-
-    def _soap_server_worker(self):
-        """
         To launch a SOAP server for the adapter
         :return:
         """
-        dispatcher = SoapDispatcher('concer_adapter_soap_server', location = SOAP_SERVER_ADDRESS, action = SOAP_SERVER_ADDRESS,
+        dispatcher = SoapDispatcher('concert_adapter_soap_server', location = SOAP_SERVER_ADDRESS, action = SOAP_SERVER_ADDRESS,
                 namespace = "http://smartylab.co.kr/products/op/adapter", prefix="tns", ns = True)
 
         # To register a method for LinkGraph Service Invocation
-        dispatcher.register_function('on_service_invocation_received', self.on_service_invocation_received, returns={'out': str},
+        dispatcher.register_function('invoke_adapter', self.receive_service_invocation, returns={'out': str},
             args={
                 'LinkGraph': {
                     'name': str,
@@ -102,6 +101,8 @@ class ConcertAdapter(object):
                         'Node':{
                             'id': str,
                             'uri': str,
+                            'min': int,
+                            'max': int,
                             'parameters': [{
                                 'parameter': {
                                     'message': str,
@@ -129,11 +130,13 @@ class ConcertAdapter(object):
         )
 
         # To register a method for Single Node Service Invocation
-        dispatcher.register_function('on_single_node_service_invocation_received', self.on_single_node_service_invocation_received, returns={'out': str},
+        dispatcher.register_function('invoke_adapter_single_node', self.receive_single_node_service_invocation, returns={'out': str},
             args={
                 'Node':{
                     'id': str,
                     'uri': str,
+                    'min': int,
+                    'max': int,
                     'parameters': [{
                         'parameter': {
                             'message': str,
@@ -146,12 +149,21 @@ class ConcertAdapter(object):
 
         # To create SOAP Server
         rospy.loginfo("Starting a SOAP server...")
-        httpd = HTTPServer(("", int(SOAP_SERVER_PORT)), SOAPHandler)
-        httpd.dispatcher = dispatcher
+        self.httpd = HTTPServer(("", int(SOAP_SERVER_PORT)), SOAPHandler)
+        self.httpd.dispatcher = dispatcher
 
         # To execute SOAP Server
         rospy.loginfo("The SOAP server started. [%s:%s]" % (SOAP_SERVER_ADDRESS, SOAP_SERVER_PORT))
-        httpd.serve_forever()
+        self.httpd.serve_forever()
+
+    def _stop_soap_server(self):
+        '''
+        To stop SOAP Server
+        :return:
+        '''
+        rospy.loginfo("Stopping the SOAP server...")
+        self.httpd.shutdown()
+
 
 
 ########################################################################################################
@@ -174,19 +186,95 @@ class ConcertAdapter(object):
 ########################################################################################################
 # Communication between the BPEL engine and the SOAP server
 ########################################################################################################
-    def on_service_invocation_received(self, LinkGraph):
-        # To validate the linkgraph
-        #
-        # To allocate resources
+    def receive_service_invocation(self, LinkGraph):
+        """
+        To receive a service invocation including LinkGraph
+        :param LinkGraph:
+        :return string:
+        """
+
+        # To validate LinkGraph
         rospy.loginfo("Data in LinkGraph...")
         rospy.loginfo(LinkGraph)
+
+        rospy.loginfo("Convert...")
+        # LinkGraphYAML = yaml.load(LinkGraph)
+        lg_name, lg = self.convert_to_linkgraph(LinkGraph)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
+        self.linkgraph = lg
+
+        # To allocate resources
         # self._inquire_resources_to_allocate(linkgraph)
         return "Hi"
 
 
-    def on_single_node_service_invocation_received(self, node):
-        pass
+    def receive_single_node_service_invocation(self, Node):
+        '''
+        To receive a service invocation for a single node
+        :param Node:
+        :return:
+        '''
 
+        # To validate Node
+        rospy.loginfo("Data in Node...")
+        rospy.loginfo(Node)
+
+        rospy.loginfo("Convert...")
+
+        lg_name, lg = self.convert_to_linkgraph(Node)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
+        self.linkgraph = lg
+
+        return "Single Node Invocation Success"
+
+
+
+
+    def convert_to_linkgraph(self, linkgraph):
+        """
+            Loading a linkgraph from yaml and returns its name, and linkgraph
+
+            :param str json: the link graph as a string loaded from yaml
+
+            @return name - name of linkgraph
+            @rtype str
+            @return linkgraph
+            @rtype concert_msgs.msg.LinkGraph
+        """
+        lg = concert_msgs.LinkGraph()
+        name = linkgraph
+
+        if 'nodes' in linkgraph:
+            for node in linkgraph['nodes']:
+                node = node['Node']
+                node['min'] = node['min'] if 'min' in node else 1
+                node['max'] = node['max'] if 'max' in node else 1
+                node['force_name_matching'] = node['force_name_matching'] if 'force_name_matching' in node else False
+                node['parameters'] = node['parameters'] if 'parameters' in node else {}
+                lg.nodes.append(concert_msgs.LinkNode(node['id'], node['uri'], node['min'], node['max'], node['force_name_matching'],node['parameters']))
+            for topic in linkgraph['topics']:
+                topic = topic['Topic']
+                lg.topics.append(concert_msgs.LinkConnection(topic['id'], topic['type']))
+            if 'service' in linkgraph:
+                for service in linkgraph['services']:
+                    service = service['Service']
+                    lg.services.append(concert_msgs.LinkConnection(service['id'], service['type']))
+            if 'actions' in linkgraph:
+                for action in linkgraph['actions']:
+                    action = action['Action']
+                    lg.actions.append(concert_msgs.LinkConnection(action['id'], action['type']))
+            for edge in linkgraph['edges']:
+                edge = edge['Edge']
+                lg.edges.append(concert_msgs.LinkEdge(edge['start'], edge['finish'], edge['remap_from'], edge['remap_to']))
+        else:
+            node = linkgraph
+            node['min'] = node['min'] if 'min' in node else 1
+            node['max'] = node['max'] if 'max' in node else 1
+            node['force_name_matching'] = node['force_name_matching'] if 'force_name_matching' in node else False
+            node['parameters'] = node['parameters'] if 'parameters' in node else {}
+            lg.nodes.append(concert_msgs.LinkNode(node['id'], node['uri'], node['min'], node['max'], node['force_name_matching'],node['parameters']))
+
+        return name, lg
 
 ########################################################################################################
 # Resource allocation related methods
@@ -303,6 +391,7 @@ class Tester(threading.Thread):
         impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(chatter_linkgraph_yaml)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
         self.linkgraph = impl
+
 
 
     def run(self):
