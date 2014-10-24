@@ -72,9 +72,6 @@ class ConcertAdapter(object):
         self._set_requester(self.service_id)
         self.pending_requests = []
 
-        # Starting the SOAP server
-        # self.start_soap_server()
-
         # Starting a SOAP server as a thread
         threading.Thread(target=self._start_soap_server).start()
 
