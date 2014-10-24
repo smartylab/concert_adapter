@@ -39,6 +39,7 @@ NODE_NAME = 'concert_adapter'
 DEFAULT_QUEUE_SIZE = 1024
 SOAP_SERVER_ADDRESS = 'localhost'
 SOAP_SERVER_PORT = '8008'
+ALLOCATION_CHECKING_DURATION = 1 # seconds
 
 
 class ConcertAdapter(object):
@@ -51,7 +52,6 @@ class ConcertAdapter(object):
         'allocation_timeout',
         'requester',
         'httpd',
-        'linkgraph',
         'pending_requests'
     ]
 
@@ -194,13 +194,18 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
         # LinkGraphYAML = yaml.load(LinkGraph)
-        lg_name, lg = self.convert_to_linkgraph(LinkGraph)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
-        self.linkgraph = lg
+        lg_name, linkgraph = self.convert_to_linkgraph(LinkGraph)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
         # To allocate resources
-        # self._inquire_resources_to_allocate(linkgraph)
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+
         return "Hi"
+
+
+    def wait_allocation(self, request_id):
+        while(request_id in self.pending_requests):
+            time.sleep(ALLOCATION_CHECKING_DURATION)
 
 
     def receive_single_node_service_invocation(self, Node):
@@ -216,9 +221,11 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
 
-        lg_name, lg = self.convert_to_linkgraph(Node)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
-        self.linkgraph = lg
+        lg_name, linkgraph = self.convert_to_linkgraph(Node)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
+
+        # To allocate resources
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Single Node Invocation Success"
 
