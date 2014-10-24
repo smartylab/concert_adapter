@@ -311,11 +311,12 @@ class ConcertAdapter(object):
         return request_id
 
 
-    def _on_resource_allocated(self, msg):
-        rospy.loginfo("The resource is allocated:\n%s" % msg)
+    def _on_resource_allocated(self, rset):
+        rospy.loginfo("The resource is allocated:\n%s" % rset)
         # Removing the request from pending_requests
-        if msg.requests.status == scheduler_msgs.Request.GRANTED:
-            self.pending_requests.remove(msg.request_id)
+        for request_id, request in rset.requests.iteritems():
+            if request.msg.status == scheduler_msgs.Request.GRANTED:
+                self.pending_requests.remove(request_id)
 
 
     def _call_resource(self, resource, params):
@@ -392,7 +393,7 @@ class Tester(threading.Thread):
 
 
     def run(self):
-        time.sleep(60)
+        time.sleep(10)
         rospy.loginfo("Allocating with the sample linkgraph...")
         adapter._inquire_resources_to_allocate(self.linkgraph)
 
@@ -405,7 +406,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    # Tester(adapter).start() # to be removed
+    Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
