@@ -23,11 +23,9 @@ import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
-<<<<<<< HEAD
+
 import concert_msgs.msg as concert_msgs
-=======
 import concert_scheduler_requests.common as scheduler_common
->>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
 
 
 # Import Messages
@@ -54,11 +52,8 @@ class ConcertAdapter(object):
         'service_id',
         'allocation_timeout',
         'requester',
-<<<<<<< HEAD
         'httpd',
         'linkgraph'
-=======
->>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
     ]
 
 
@@ -76,24 +71,15 @@ class ConcertAdapter(object):
 
         # Setting up the requester
         self._set_requester(self.service_id)
-<<<<<<< HEAD
-=======
 
         # Starting the SOAP server
         # self.start_soap_server()
->>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
 
         # Starting a SOAP server as a thread
         threading.Thread(target=self._start_soap_server).start()
 
-<<<<<<< HEAD
+
     def __del__(self):
-=======
-################################################################
-# Preparation for adaptation: SOAP Server
-################################################################
-    def start_soap_server(self):
->>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
         """
 
         :return:
@@ -177,6 +163,7 @@ class ConcertAdapter(object):
         rospy.loginfo("The SOAP server started. [%s:%s]" % (SOAP_SERVER_ADDRESS, SOAP_SERVER_PORT))
         self.httpd.serve_forever()
 
+
     def _stop_soap_server(self):
         '''
         To stop SOAP Server
@@ -206,8 +193,7 @@ class ConcertAdapter(object):
 
 ################################################################
 # Communication between the BPEL engine and the SOAP server
-<<<<<<< HEAD
-########################################################################################################
+################################################################
     def receive_service_invocation(self, LinkGraph):
         """
         To receive a service invocation including LinkGraph
@@ -225,12 +211,6 @@ class ConcertAdapter(object):
         rospy.loginfo("Sample linkgraph loaded:\n%s" % lg)
         self.linkgraph = lg
 
-=======
-################################################################
-    def on_service_invocation_received(self, linkgraph):
-        # To validate the linkgraph
-        #
->>>>>>> e49b62cba1b38e12cf32b71b2fb186d1f4748bf9
         # To allocate resources
         # self._inquire_resources_to_allocate(linkgraph)
         return "Hi"
@@ -254,8 +234,6 @@ class ConcertAdapter(object):
         self.linkgraph = lg
 
         return "Single Node Invocation Success"
-
-
 
 
     def convert_to_linkgraph(self, linkgraph):
