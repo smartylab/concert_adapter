@@ -312,6 +312,11 @@ class ConcertAdapter(object):
 
 
     def _on_resource_allocated(self, rset):
+        """
+        To get a notification from requester when resources are allocated
+        :param rset: a set of requests
+        :return:
+        """
         rospy.loginfo("The resource is allocated:\n%s" % rset)
         # Removing the request from pending_requests
         for request_id, request in rset.requests.iteritems():
