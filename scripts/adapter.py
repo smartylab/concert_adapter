@@ -14,6 +14,7 @@ import sys
 import threading
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
 import yaml
+import time
 
 
 # Import Dependent Modules of ROS, Rocon, and Concert
@@ -24,19 +25,16 @@ import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
 
-import concert_msgs.msg as concert_msgs
-import concert_scheduler_requests.common as scheduler_common
-
 
 # Import Messages
 from std_msgs.msg import String
 import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
+import concert_msgs.msg as concert_msgs
+import concert_scheduler_requests.common as scheduler_common
 
 
 # Constants
-import time
-
 NODE_NAME = 'concert_adapter'
 DEFAULT_QUEUE_SIZE = 1024
 SOAP_SERVER_ADDRESS = 'localhost'
@@ -53,7 +51,8 @@ class ConcertAdapter(object):
         'allocation_timeout',
         'requester',
         'httpd',
-        'linkgraph'
+        'linkgraph',
+        'pending_requests'
     ]
 
 
@@ -71,6 +70,7 @@ class ConcertAdapter(object):
 
         # Setting up the requester
         self._set_requester(self.service_id)
+        self.pending_requests = []
 
         # Starting the SOAP server
         # self.start_soap_server()
@@ -171,7 +171,6 @@ class ConcertAdapter(object):
         '''
         rospy.loginfo("Stopping the SOAP server...")
         self.httpd.shutdown()
-
 
 
 ################################################################
@@ -285,20 +284,6 @@ class ConcertAdapter(object):
 ################################################################
 # Resource allocation related methods
 ################################################################
-    ############### Unused
-    # def _on_requester_reply_received(self, request_set):
-    #     for request_id, request in request_set.requests.iteritems():
-    #
-    #         if request.msg.status == scheduler_msgs.Request.GRANTED:
-    #             if request_id in self.pending_requests:
-    #                 self.pending_requests.remove(request_id)
-    #                 # Do more...
-    #                 #
-    #         elif request.msg.status == scheduler_msgs.Request.CLOSED:
-    #             self.pending_requests.remove(request_id)
-    #             self.granted_requests.remove(request_id)
-
-
     def _inquire_resources_to_allocate(self, linkgraph):
         """
         Let the requester allocate resources specified in the linkgraph
@@ -316,15 +301,25 @@ class ConcertAdapter(object):
             resource = self._gen_resource(node, linkgraph.edges)
             resource_list.append(resource)
 
-        # Calling requester
+        # Generating a request
         rospy.loginfo("Requesting the loaded resources...")
         request_id = self.requester.new_request(resource_list, uuid=self.service_id)
+
+        # Pushing the request to pending_requests
+        self.pending_requests.append(request_id)
+
+        # Sending the request
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
+
+        return request_id
 
 
     def _on_resource_allocated(self, msg):
         rospy.loginfo("The resource is allocated:\n%s" % msg)
+        # Removing the request from pending_requests
+        if msg.requests.status == scheduler_msgs.Request.GRANTED:
+            self.pending_requests.remove(msg.request_id)
 
 
     def _call_resource(self, resource, params):
