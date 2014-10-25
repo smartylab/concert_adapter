@@ -75,7 +75,7 @@ class ConcertAdapter(object):
         self.pending_requests = dict()
 
         # Preparing a basket for storing allocated resources
-        # Form: {__resource_id__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
+        # Form: {__resource_uri__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
         self.allocated_resources = dict()
 
         # Starting a SOAP server as a thread
@@ -346,13 +346,18 @@ class ConcertAdapter(object):
             if request.msg.status == scheduler_msgs.Request.GRANTED:
                 # Removing the request from pending_requests
                 linkgraph = self.pending_requests.pop(request_id)
-                # Adding the allocated resources to allocated_resources
                 for resource in request.msg.resources:
                     # Preparing a publisher
-                    self.allocated_resources[resource.id] = {
-                        'resource': resource,
-                        'publishers': [rospy.Publisher(topic.id, self._load_msg(topic.type), queue_size=DEFAULT_QUEUE_SIZE) for topic in linkgraph.topics]
-                    }
+                    pubs = [rospy.Publisher(
+                        self._remap_topic(topic.id, linkgraph.edges),
+                        self._load_msg(topic.type),
+                        queue_size=DEFAULT_QUEUE_SIZE
+                    ) for topic in linkgraph.topics]
+                    rospy.loginfo("Publishers are generated for the resource, %s. [%s]" % (
+                        resource.uri,
+                        ", ".join(["%s - %s" % (pub.name, pub.data_class) for pub in pubs])))
+                    # Adding the allocated resources to allocated_resources
+                    self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
 
 
     def _call_resource(self, resource_id, msg):
@@ -401,6 +406,18 @@ class ConcertAdapter(object):
         except:
             rospy.loginfo("Loading failed.")
             return None
+
+
+    def _remap_topic(self, prev_topic, edges):
+        topics = [e.remap_to for e in edges if e.start == prev_topic]
+        cnt= len(topics)
+        if cnt > 0:
+            if cnt > 1:
+                rospy.loginfo("Duplicated remapping info. The first remapping is applied.")
+            return topics[0]
+        else:
+            rospy.loginfo("No remapping info. The original topic name is returned.")
+            return prev_topic
 
 
 ################################################################
@@ -458,7 +475,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    # Tester(adapter).start() # to be removed
+    Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
