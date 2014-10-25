@@ -40,6 +40,7 @@ DEFAULT_QUEUE_SIZE = 8
 SOAP_SERVER_ADDRESS = 'localhost'
 SOAP_SERVER_PORT = '8008'
 ALLOCATION_CHECKING_DURATION = 1 # seconds
+ALLOCATION_TIMEOUT = 10 # seconds
 
 
 class ConcertAdapter(object):
@@ -78,7 +79,11 @@ class ConcertAdapter(object):
         self.allocated_resources = dict()
 
         # Starting a SOAP server as a thread
-        threading.Thread(target=self._start_soap_server).start()
+        try:
+            threading.Thread(target=self._start_soap_server).start()
+        except:
+            rospy.loginfo("Error on SOAP Server Thread...")
+
 
 
 ########################################################################################################
@@ -147,6 +152,9 @@ class ConcertAdapter(object):
             }
         )
 
+        # To register a method for Releasing Allocated Resources
+        dispatcher.register_function('release_allocated_resources', self.release_allocated_resources, returns={'out': bool}, args={})
+
         # To create SOAP Server
         rospy.loginfo("Starting a SOAP server...")
         self.httpd = HTTPServer(("", int(SOAP_SERVER_PORT)), SOAPHandler)
@@ -163,7 +171,10 @@ class ConcertAdapter(object):
         :return:
         '''
         rospy.loginfo("Stopping the SOAP server...")
-        self.httpd.shutdown()
+        try:
+            self.httpd.shutdown()
+        except:
+            rospy.loginfo("Stopping SOAP Server is failed.")
 
 
 ################################################################
@@ -192,18 +203,12 @@ class ConcertAdapter(object):
         :param LinkGraph:
         :return string:
         """
-
-        # To validate LinkGraph
-        rospy.loginfo("Data in LinkGraph...")
-        rospy.loginfo(LinkGraph)
-
-        rospy.loginfo("Convert...")
-        # LinkGraphYAML = yaml.load(LinkGraph)
+        # Converting input data (LinkGraph)
         lg_name, linkgraph = self._convert_to_linkgraph(LinkGraph)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
-        # To allocate resources
-        self._wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+        # Requesting resource allocations
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Hi"
 
@@ -214,32 +219,41 @@ class ConcertAdapter(object):
         :param Node:
         :return:
         '''
-
-        # To validate Node
-        rospy.loginfo("Data in Node...")
-        rospy.loginfo(Node)
-
-        rospy.loginfo("Convert...")
-
+        # Converting input data to LinkGraph
         lg_name, linkgraph = self._convert_to_linkgraph(Node)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
-        # To allocate resources
-        self._wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+        # Requesting resource allocations
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Single Node Invocation Success"
 
 
-    def _wait_allocation(self, request_id):
+    def wait_allocation(self, request_id):
+        '''
+        To wait until that resource allocations are done
+        :param request_id:
+        :return:
+        '''
+
+        # Setting a duration for waiting resource allocation callback
+        timeout = ALLOCATION_TIMEOUT
+
         while(request_id in self.pending_requests):
             time.sleep(ALLOCATION_CHECKING_DURATION)
+            if timeout > 0:
+                timeout = timeout - 1
+            else:
+                self.release_allocated_resources()
+                raise OSError("Timeout for Allocating Resources")
+                sys.exit(1)
 
 
     def _convert_to_linkgraph(self, linkgraph):
         """
-            Loading a linkgraph from yaml and returns its name, and linkgraph
+            Loading a linkgraph from input data and returns its name, and linkgraph
 
-            :param str json: the link graph as a string loaded from yaml
+            :param str json: the link graph from service invocation msg
 
             @return name - name of linkgraph
             @rtype str
@@ -247,37 +261,42 @@ class ConcertAdapter(object):
             @rtype concert_msgs.msg.LinkGraph
         """
         lg = concert_msgs.LinkGraph()
-        name = linkgraph['name']
+        name = linkgraph['name'] if 'name' in linkgraph else 'Default'
 
-        if 'nodes' in linkgraph:
-            for node in linkgraph['nodes']:
-                node = node['Node']
+        try:
+            # Converting to linkgraph
+            if 'nodes' in linkgraph:
+                for node in linkgraph['nodes']:
+                    node = node['Node']
+                    node['min'] = node['min'] if 'min' in node else 1
+                    node['max'] = node['max'] if 'max' in node else 1
+                    node['force_name_matching'] = node['force_name_matching'] if 'force_name_matching' in node else False
+                    node['parameters'] = node['parameters'] if 'parameters' in node else {}
+                    lg.nodes.append(concert_msgs.LinkNode(node['id'], node['uri'], node['min'], node['max'], node['force_name_matching'],node['parameters']))
+                for topic in linkgraph['topics']:
+                    topic = topic['Topic']
+                    lg.topics.append(concert_msgs.LinkConnection(topic['id'], topic['type']))
+                if 'service' in linkgraph:
+                    for service in linkgraph['services']:
+                        service = service['Service']
+                        lg.services.append(concert_msgs.LinkConnection(service['id'], service['type']))
+                if 'actions' in linkgraph:
+                    for action in linkgraph['actions']:
+                        action = action['Action']
+                        lg.actions.append(concert_msgs.LinkConnection(action['id'], action['type']))
+                for edge in linkgraph['edges']:
+                    edge = edge['Edge']
+                    lg.edges.append(concert_msgs.LinkEdge(edge['start'], edge['finish'], edge['remap_from'], edge['remap_to']))
+            else:
+                node = linkgraph
                 node['min'] = node['min'] if 'min' in node else 1
                 node['max'] = node['max'] if 'max' in node else 1
                 node['force_name_matching'] = node['force_name_matching'] if 'force_name_matching' in node else False
                 node['parameters'] = node['parameters'] if 'parameters' in node else {}
                 lg.nodes.append(concert_msgs.LinkNode(node['id'], node['uri'], node['min'], node['max'], node['force_name_matching'],node['parameters']))
-            for topic in linkgraph['topics']:
-                topic = topic['Topic']
-                lg.topics.append(concert_msgs.LinkConnection(topic['id'], topic['type']))
-            if 'service' in linkgraph:
-                for service in linkgraph['services']:
-                    service = service['Service']
-                    lg.services.append(concert_msgs.LinkConnection(service['id'], service['type']))
-            if 'actions' in linkgraph:
-                for action in linkgraph['actions']:
-                    action = action['Action']
-                    lg.actions.append(concert_msgs.LinkConnection(action['id'], action['type']))
-            for edge in linkgraph['edges']:
-                edge = edge['Edge']
-                lg.edges.append(concert_msgs.LinkEdge(edge['start'], edge['finish'], edge['remap_from'], edge['remap_to']))
-        else:
-            node = linkgraph
-            node['min'] = node['min'] if 'min' in node else 1
-            node['max'] = node['max'] if 'max' in node else 1
-            node['force_name_matching'] = node['force_name_matching'] if 'force_name_matching' in node else False
-            node['parameters'] = node['parameters'] if 'parameters' in node else {}
-            lg.nodes.append(concert_msgs.LinkNode(node['id'], node['uri'], node['min'], node['max'], node['force_name_matching'],node['parameters']))
+        except TypeError as e:
+            rospy.loginfo(e)
+            sys.exit(1)
 
         return name, lg
 
@@ -439,9 +458,9 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    Tester(adapter).start() # to be removed
+    # Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
         adapter._stop_soap_server()
-        adapter._release_allocated_resources()
+        adapter.release_allocated_resources()
