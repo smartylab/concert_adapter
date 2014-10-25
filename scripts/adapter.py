@@ -15,6 +15,7 @@ import threading
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
 import yaml
 import time
+import importlib
 
 
 # Import Dependent Modules of ROS, Rocon, and Concert
@@ -27,7 +28,6 @@ import concert_service_link_graph
 
 
 # Import Messages
-from std_msgs.msg import String
 import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 import concert_msgs.msg as concert_msgs
@@ -36,7 +36,7 @@ import concert_scheduler_requests.common as scheduler_common
 
 # Constants
 NODE_NAME = 'concert_adapter'
-DEFAULT_QUEUE_SIZE = 1024
+DEFAULT_QUEUE_SIZE = 8
 SOAP_SERVER_ADDRESS = 'localhost'
 SOAP_SERVER_PORT = '8008'
 ALLOCATION_CHECKING_DURATION = 1 # seconds
@@ -52,7 +52,8 @@ class ConcertAdapter(object):
         'allocation_timeout',
         'requester',
         'httpd',
-        'pending_requests'
+        'pending_requests',
+        'allocated_resources'
     ]
 
 
@@ -70,7 +71,11 @@ class ConcertAdapter(object):
 
         # Setting up the requester
         self._set_requester(self.service_id)
-        self.pending_requests = []
+        self.pending_requests = dict()
+
+        # Preparing a basket for storing allocated resources
+        # Form: {__resource_id__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
+        self.allocated_resources = dict()
 
         # Starting a SOAP server as a thread
         threading.Thread(target=self._start_soap_server).start()
@@ -152,7 +157,7 @@ class ConcertAdapter(object):
         self.httpd.serve_forever()
 
 
-    def stop_soap_server(self):
+    def _stop_soap_server(self):
         '''
         To stop SOAP Server
         :return:
@@ -194,18 +199,13 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
         # LinkGraphYAML = yaml.load(LinkGraph)
-        lg_name, linkgraph = self.convert_to_linkgraph(LinkGraph)
+        lg_name, linkgraph = self._convert_to_linkgraph(LinkGraph)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
         # To allocate resources
-        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+        self._wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Hi"
-
-
-    def wait_allocation(self, request_id):
-        while(request_id in self.pending_requests):
-            time.sleep(ALLOCATION_CHECKING_DURATION)
 
 
     def receive_single_node_service_invocation(self, Node):
@@ -221,16 +221,21 @@ class ConcertAdapter(object):
 
         rospy.loginfo("Convert...")
 
-        lg_name, linkgraph = self.convert_to_linkgraph(Node)
+        lg_name, linkgraph = self._convert_to_linkgraph(Node)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
         # To allocate resources
-        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+        self._wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
         return "Single Node Invocation Success"
 
 
-    def convert_to_linkgraph(self, linkgraph):
+    def _wait_allocation(self, request_id):
+        while(request_id in self.pending_requests):
+            time.sleep(ALLOCATION_CHECKING_DURATION)
+
+
+    def _convert_to_linkgraph(self, linkgraph):
         """
             Loading a linkgraph from yaml and returns its name, and linkgraph
 
@@ -242,7 +247,7 @@ class ConcertAdapter(object):
             @rtype concert_msgs.msg.LinkGraph
         """
         lg = concert_msgs.LinkGraph()
-        name = linkgraph
+        name = linkgraph['name']
 
         if 'nodes' in linkgraph:
             for node in linkgraph['nodes']:
@@ -302,7 +307,7 @@ class ConcertAdapter(object):
         request_id = self.requester.new_request(resource_list, uuid=self.service_id)
 
         # Pushing the request to pending_requests
-        self.pending_requests.append(request_id)
+        self.pending_requests[request_id] = linkgraph
 
         # Sending the request
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
@@ -318,27 +323,35 @@ class ConcertAdapter(object):
         :return:
         """
         rospy.loginfo("The resource is allocated:\n%s" % rset)
-        # Removing the request from pending_requests
         for request_id, request in rset.requests.iteritems():
             if request.msg.status == scheduler_msgs.Request.GRANTED:
-                self.pending_requests.remove(request_id)
+                # Removing the request from pending_requests
+                linkgraph = self.pending_requests.pop(request_id)
+                # Adding the allocated resources to allocated_resources
+                for resource in request.msg.resources:
+                    # Preparing a publisher
+                    self.allocated_resources[resource.id] = {
+                        'resource': resource,
+                        'publishers': [rospy.Publisher(topic.id, self._load_msg(topic.type), queue_size=DEFAULT_QUEUE_SIZE) for topic in linkgraph.topics]
+                    }
 
 
-    def _call_resource(self, resource, params):
+    def _call_resource(self, resource_id, msg):
         """
 
-        :param resource:
-        :param params:
+        :param resource_id:
+        :param msg:
         :return:
         """
-        pass
+        pubs = self.allocated_resources[resource_id].publishers
+        for pub in pubs:
+            pub.publish(msg)
 
 
-    def release_allocated_resources(self):
-        #self.lock.acquire()
+    def _release_allocated_resources(self):
         self.requester.cancel_all()
         self.requester.send_requests()
-        #self.lock.release()
+        self.allocated_resources.clear()
 
 
     def _gen_resource(self, node, edges):
@@ -354,6 +367,21 @@ class ConcertAdapter(object):
         resource.uri = node.resource
         resource.remappings = [rocon_std_msgs.Remapping(e.remap_from, e.remap_to) for e in edges if e.start == node.id or e.finish == node.id]
         return resource
+
+
+    def _load_msg(self, type):
+        try:
+            components = type.split('/')
+            components.insert(1, 'msg')
+            module_path = ".".join(components[:-1])
+            class_name = components[-1]
+            rospy.loginfo("Loading the message... %s from %s" % (class_name, module_path))
+            module = importlib.import_module(module_path)
+            rospy.loginfo("The module is imported.")
+            return getattr(module, class_name)
+        except:
+            rospy.loginfo("Loading failed.")
+            return None
 
 
 ################################################################
@@ -415,5 +443,5 @@ if __name__ == '__main__':
     rospy.spin()
 
     if rospy.is_shutdown():
-        adapter.stop_soap_server()
-        adapter.release_allocated_resources()
+        adapter._stop_soap_server()
+        adapter._release_allocated_resources()
