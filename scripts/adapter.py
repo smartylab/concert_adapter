@@ -73,7 +73,11 @@ class ConcertAdapter(object):
         self.pending_requests = []
 
         # Starting a SOAP server as a thread
-        threading.Thread(target=self._start_soap_server).start()
+        try:
+            threading.Thread(target=self._start_soap_server).start()
+        except:
+            rospy.loginfo("Error on SOAP Server Thread...")
+
 
 
 ########################################################################################################
@@ -189,7 +193,7 @@ class ConcertAdapter(object):
         """
 
         # Converting input data (LinkGraph)
-        lg_name, linkgraph = self.convert_to_linkgraph(LinkGraph)
+        lg_name, linkgraph = self._convert_to_linkgraph(LinkGraph)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
         # Requesting resource allocations
@@ -199,6 +203,11 @@ class ConcertAdapter(object):
 
 
     def wait_allocation(self, request_id):
+        '''
+        To wait until
+        :param request_id:
+        :return:
+        '''
         while(request_id in self.pending_requests):
             time.sleep(ALLOCATION_CHECKING_DURATION)
 
@@ -211,7 +220,7 @@ class ConcertAdapter(object):
         '''
 
         # Converting input data to LinkGraph
-        lg_name, linkgraph = self.convert_to_linkgraph(Node)
+        lg_name, linkgraph = self._convert_to_linkgraph(Node)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
         # Requesting resource allocations
@@ -220,19 +229,11 @@ class ConcertAdapter(object):
         return "Single Node Invocation Success"
 
 
-    def _wait_resource_allocation_finish(self):
-        self.is_finished
-
-        while self.is_finished:
-            time.sleep(1)
-
-
-
     def _convert_to_linkgraph(self, linkgraph):
         """
-            Loading a linkgraph from yaml and returns its name, and linkgraph
+            Loading a linkgraph from input data and returns its name, and linkgraph
 
-            :param str json: the link graph as a string loaded from yaml
+            :param str json: the link graph from service invocation msg
 
             @return name - name of linkgraph
             @rtype str
@@ -240,8 +241,9 @@ class ConcertAdapter(object):
             @rtype concert_msgs.msg.LinkGraph
         """
         lg = concert_msgs.LinkGraph()
-        name = linkgraph
+        name = linkgraph['name'] if 'name' in linkgraph else 'Default'
 
+        # Converting to linkgraph
         if 'nodes' in linkgraph:
             for node in linkgraph['nodes']:
                 node = node['Node']
@@ -409,7 +411,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    Tester(adapter).start() # to be removed
+    # Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
