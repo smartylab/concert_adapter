@@ -475,7 +475,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    Tester(adapter).start() # to be removed
+    # Tester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
