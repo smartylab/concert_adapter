@@ -372,7 +372,7 @@ class ConcertAdapter(object):
             pub.publish(msg)
 
 
-    def _release_allocated_resources(self):
+    def release_allocated_resources(self):
         self.requester.cancel_all()
         self.requester.send_requests()
         self.allocated_resources.clear()
@@ -421,9 +421,9 @@ class ConcertAdapter(object):
 
 
 ################################################################
-# Tester (will be removed)
+# Testers (will be removed)
 ################################################################
-class Tester(threading.Thread):
+class ChatterTester(threading.Thread):
     __slots__ = [
         'linkgraph'
     ]
@@ -467,6 +467,37 @@ class Tester(threading.Thread):
         adapter._inquire_resources_to_allocate(self.linkgraph)
 
 
+class KeyopTester(threading.Thread):
+    __slots__ = [
+        'linkgraph'
+    ]
+
+    def __init__(self, adapter):
+        threading.Thread.__init__(self)
+        chatter_linkgraph_yaml = yaml.load("""
+            name: "Kobuki Keyop"
+            nodes:
+              - id: keyop
+                uri: rocon:/*/*#kobuki_keyop/keyop
+                min: 1
+                max: 1
+            topics:
+              - id: cmd_vel
+                type: geometry_msgs/Twist
+            actions: []
+            edges: []
+        """)
+        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(chatter_linkgraph_yaml)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
+        self.linkgraph = impl
+
+
+    def run(self):
+        time.sleep(10)
+        rospy.loginfo("Allocating with the sample linkgraph...")
+        adapter._inquire_resources_to_allocate(self.linkgraph)
+
+
 ########################################################################################################
 # Main method to launch the adapter
 ########################################################################################################
@@ -475,7 +506,7 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    # Tester(adapter).start() # to be removed
+    KeyopTester(adapter).start() # to be removed
     rospy.spin()
 
     if rospy.is_shutdown():
