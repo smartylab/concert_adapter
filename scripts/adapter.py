@@ -369,7 +369,12 @@ class ConcertAdapter(object):
         """
         pubs = self.allocated_resources[resource_id].publishers
         for pub in pubs:
-            pub.publish(msg)
+            # Building a message from the parameter, msg
+            msg_instance = pub.data_class()
+            # Property initialization
+
+            # Publishing the message
+            pub.publish(msg_instance)
 
 
     def release_allocated_resources(self):
@@ -468,6 +473,11 @@ class ConcertAdapterTester(threading.Thread):
                 type: kobuki_msgs/KeyboardInput
             actions: []
             edges: []
+        """,
+        'keyop_call': """
+            topic: teleop,
+            message:
+              - pressedKey: 65
         """
     }
 
