@@ -423,14 +423,14 @@ class ConcertAdapter(object):
 ################################################################
 # Testers (will be removed)
 ################################################################
-class ChatterTester(threading.Thread):
+class ConcertAdapterTester(threading.Thread):
     __slots__ = [
         'linkgraph'
     ]
 
-    def __init__(self, adapter):
-        threading.Thread.__init__(self)
-        chatter_linkgraph_yaml = yaml.load("""
+
+    LINKGRAPH_YAML_LIST = {
+        'chatter': """
             name: "Chatter Concert"
             nodes:
               - id: dudes
@@ -455,26 +455,8 @@ class ChatterTester(threading.Thread):
                 finish: chatter
                 remap_from: chatter
                 remap_to: /conversation/chatter
-        """)
-        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(chatter_linkgraph_yaml)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
-        self.linkgraph = impl
-
-
-    def run(self):
-        time.sleep(10)
-        rospy.loginfo("Allocating with the sample linkgraph...")
-        adapter._inquire_resources_to_allocate(self.linkgraph)
-
-
-class KeyopTester(threading.Thread):
-    __slots__ = [
-        'linkgraph'
-    ]
-
-    def __init__(self, adapter):
-        threading.Thread.__init__(self)
-        chatter_linkgraph_yaml = yaml.load("""
+        """,
+        'keyop': """
             name: "Kobuki Keyop"
             nodes:
               - id: keyop
@@ -482,12 +464,18 @@ class KeyopTester(threading.Thread):
                 min: 1
                 max: 1
             topics:
-              - id: cmd_vel
-                type: geometry_msgs/Twist
+              - id: teleop
+                type: kobuki_msgs/KeyboardInput
             actions: []
             edges: []
-        """)
-        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(chatter_linkgraph_yaml)
+        """
+    }
+
+
+    def __init__(self, adapter, linkgraph_yaml_key):
+        threading.Thread.__init__(self)
+        linkgraph_yaml = yaml.load(self.LINKGRAPH_YAML_LIST[linkgraph_yaml_key])
+        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
         self.linkgraph = impl
 
@@ -506,9 +494,10 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
-    KeyopTester(adapter).start() # to be removed
-    rospy.spin()
 
+    ConcertAdapterTester(adapter, 'chatter').start() # to be removed
+
+    rospy.spin()
     if rospy.is_shutdown():
         adapter._stop_soap_server()
         adapter.release_allocated_resources()
