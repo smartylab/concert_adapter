@@ -34,6 +34,11 @@ import concert_msgs.msg as concert_msgs
 import concert_scheduler_requests.common as scheduler_common
 
 
+# Import Testers
+from tester import TeleopTester
+from tester import ChatterTester
+
+
 # Constants
 NODE_NAME = 'concert_adapter'
 DEFAULT_QUEUE_SIZE = 8
@@ -433,6 +438,8 @@ if __name__ == '__main__':
 
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
+
+    TeleopTester(adapter).start()
 
     rospy.spin()
     if rospy.is_shutdown():
