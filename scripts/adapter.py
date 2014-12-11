@@ -46,7 +46,7 @@ ALLOCATION_TIMEOUT = 10 # seconds
 class ConcertAdapter(object):
     __slots__ = [
         'soap_server',
-        'service_name',
+        'service_names',
         'service_description',
         'service_priority',
         'service_id',
@@ -153,7 +153,7 @@ class ConcertAdapter(object):
         )
 
         # To register a method for Releasing Allocated Resources
-        dispatcher.register_function('release_allocated_resources', self._release_allocated_resources, returns={'out': bool}, args={})
+        dispatcher.register_function('release_allocated_resources', self.release_allocated_resources, returns={'out': bool}, args={})
 
         # To invoke an allocated resource with input
         dispatcher.register_function('call_resource', self._call_resource, returns={'out': bool},
@@ -524,7 +524,7 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
 
-    ConcertAdapterTester(adapter, 'chatter').start() # to be removed
+    #ConcertAdapterTester(adapter, 'chatter').start() # to be removed
 
     rospy.spin()
     if rospy.is_shutdown():
