@@ -347,70 +347,39 @@ class ConcertAdapter(object):
         :return:
         """
         rospy.loginfo("The resource is allocated:\n%s" % rset)
-
         for request_id, request in rset.requests.iteritems():
             if request.msg.status == scheduler_msgs.Request.GRANTED:
-
                 # Removing the request from pending_requests
                 linkgraph = self.pending_requests.pop(request_id)
-                rospy.loginfo("====Allocated Publishers in Concert Adapter====")
-                for topic in linkgraph.topics:
+                for resource in request.msg.resources:
                     # Preparing a publisher
-                    topic_name= self._remap_topic(topic.id, linkgraph.edges)
-                    message_type=self._load_msg(topic.type)
-                    pub = rospy.Publisher(topic_name, message_type,
-                        queue_size=DEFAULT_QUEUE_SIZE)
+                    pubs = [rospy.Publisher(
+                        self._remap_topic(topic.id, linkgraph.edges),
+                        self._load_msg(topic.type),
+                        queue_size=DEFAULT_QUEUE_SIZE
+                    ) for topic in linkgraph.topics]
+                    rospy.loginfo("Publishers are generated for the resource, %s. [%s]" % (
+                        resource.uri,
+                        ", ".join(["%s - %s" % (pub.name, pub.data_class) for pub in pubs])))
                     # Adding the allocated resources to allocated_resources
-                    #self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
-                    rospy.loginfo("Topic: %s, Topic Type: %s" % (topic_name, message_type))
-                    self.allocated_resources[topic_name] = pub
-
-                #for resource in request.msg.resources:
-
-                    # Preparing a publisher
-                #    pubs = [rospy.Publisher(
-                #        self._remap_topic(topic.id, linkgraph.edges),
-                #        self._load_msg(topic.type),
-                #        queue_size=DEFAULT_QUEUE_SIZE
-                #    ) for topic in linkgraph.topics]
-
-                #    rospy.loginfo("Publishers are generated for the resource, %s. [%s]" % (
-                #        resource.uri,
-                #        ", ".join(["%s - %s" % (pub.name, pub.data_class) for pub in pubs])))
-
-                    # Adding the allocated resources to allocated_resources
-                    #self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
-                #    self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
+                    self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
 
 
-    #def _call_resource(self, resource_id, msg):
-    #    """
-
-    #    :param resource_id:
-    #    :param msg:
-    #    :return:
-    #   """
-    #    pubs = self.allocated_resources[resource_id].publishers
-    #    for pub in pubs:
-    #        # Building a message from the parameter, msg
-    #        msg_instance = pub.data_class()
-    #        # Property initialization
-
-    #        # Publishing the message
-    #        pub.publish(msg_instance)
-
-    def _call_resource(self, topic_name, message):
+    def _call_resource(self, resource_id, msg):
         """
+
         :param resource_id:
         :param msg:
         :return:
-       """
+        """
+        pubs = self.allocated_resources[resource_id].publishers
+        for pub in pubs:
+            # Building a message from the parameter, msg
+            msg_instance = pub.data_class()
+            # Property initialization
 
-        pub = self.allocated_resources[topic_name]
-        msg_instance = pub.data_class()
-
-        #allocate message to msg_instance
-        pub.publish(msg_instance)
+            # Publishing the message
+            pub.publish(msg_instance)
 
 
     def release_allocated_resources(self):
@@ -470,9 +439,9 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME)
     adapter = ConcertAdapter()
 
-    #ChatterTester(adapter).start()
+    ChatterTester(adapter).start()
 
-    TeleopTester(adapter).start()
+    #TeleopTester(adapter).start()
 
     rospy.spin()
     if rospy.is_shutdown():
