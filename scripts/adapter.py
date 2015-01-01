@@ -13,6 +13,7 @@ from BaseHTTPServer import HTTPServer
 import sys
 import threading
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
+from pysimplesoap.client import SoapClient
 import yaml
 import time
 import importlib
@@ -25,6 +26,7 @@ import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
 import concert_service_link_graph
+import roslib.message
 
 
 # Import Messages
@@ -38,8 +40,6 @@ import concert_scheduler_requests.common as scheduler_common
 from tester import TeleopTester
 from tester import ChatterTester
 
-# By CW
-import roslib.message
 
 # Constants
 NODE_NAME = 'concert_adapter'
@@ -53,6 +53,7 @@ ALLOCATION_TIMEOUT = 10 # seconds
 class ConcertAdapter(object):
     __slots__ = [
         'soap_server',
+        'soap_client',
         'service_name',
         'service_description',
         'service_priority',
@@ -504,6 +505,15 @@ class ConcertAdapter(object):
         else:
             rospy.loginfo("No remapping info. The original topic name is returned.")
             return prev_topic
+
+
+    def send_msg_to_bpel(self, address, namespace, method, params, result_names):
+        client = SoapClient(
+            location = address, # "http://localhost:8080/ode/processes/A2B"
+            namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
+            soap_ns='soap')
+        response = client.call(method, **params)
+        print(response[result_names[0]][result_names[1]])
 
 
 ########################################################################################################
