@@ -395,7 +395,7 @@ class ConcertAdapter(object):
                     self.allocated_resources[topic_name] = pub
 
 
-        #TEST!!!
+        ##### TEST CODE #####
         r = rospy.Rate(10)
         while not rospy.is_shutdown():
             self._call_resource("/turtlebot/cmd_vel", {'linear': {'x':0.1, 'y':0.0, 'z':0.0}, 'angular': {'x':0.0, 'y':0.0, 'z':0.0}})
@@ -541,12 +541,9 @@ if __name__ == '__main__':
     #rospy.loginfo(str(msg_inst.linear))
     #rospy.loginfo(str(msg_inst.linear.x))
 
-
-    ###############CW##########################
     adapter = ConcertAdapter()
 
     #ChatterTester(adapter).start()
-
     TeleopTester(adapter).start()
 
     rospy.spin()
