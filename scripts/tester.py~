@@ -22,7 +22,8 @@ class ChatterTester(threading.Thread):
             nodes:
               - id: dudes
                 uri: rocon:/*/*#rocon_apps/listener
-
+                min: 2
+                max: 4
               - id: dudette
                 uri: rocon:/*/dudette#rocon_apps/talker
                 parameters:
@@ -66,7 +67,9 @@ class TeleopTester(threading.Thread):
             name: "Teleop"
             nodes:
               - id: turtlebot
-                uri: rocon:/turtlebot/*/*#turtlebot_rapps/teleop
+                uri: rocon:/turtlebot
+                min: 2
+                max: 4
             topics:
               - id: teleop
                 type: geometry_msgs/Twist
@@ -74,8 +77,12 @@ class TeleopTester(threading.Thread):
             edges:
               - start: teleop
                 finish: turtlebot
-                remap_from: 
-                remap_to: /turtlebot/cmd_vel
+                remap_from: teleop
+                remap_to: /conversation/teleop
+              - start: turtlebot
+                finish: teleop
+                remap_from: teleop
+                remap_to: /conversation/teleop
         """)
         impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
