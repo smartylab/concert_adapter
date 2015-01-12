@@ -159,6 +159,25 @@ class ConcertAdapter(object):
             }
         )
 
+        # To register a method for Single Node Service Invocation
+        dispatcher.register_function('call_resource', self._call_resource, returns={'out': str},
+            args={
+                'topic_name': str,
+                'message': {
+                    'linear': {
+                        'x': float,
+                        'y': float,
+                        'z': float
+                    },
+                    'angular': {
+                        'x': float,
+                        'y': float,
+                        'z': float
+                    }
+                }
+            }
+        )
+
         # To register a method for Releasing Allocated Resources
         dispatcher.register_function('release_allocated_resources', self.release_allocated_resources, returns={'out': bool}, args={})
 
