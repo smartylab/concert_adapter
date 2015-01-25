@@ -17,6 +17,7 @@ from pysimplesoap.client import SoapClient
 import yaml
 import time
 import importlib
+import ast
 
 
 # Import Dependent Modules of ROS, Rocon, and Concert
@@ -34,7 +35,7 @@ import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 import concert_msgs.msg as concert_msgs
 import concert_scheduler_requests.common as scheduler_common
-
+from std_msgs.msg import String
 
 # Import Testers
 from tester import TeleopTester
@@ -62,7 +63,8 @@ class ConcertAdapter(object):
         'requester',
         'httpd',
         'pending_requests',
-        'allocated_resources'
+        'allocated_resources',
+        'adapter2bpel_sub'
     ]
 
 
@@ -71,20 +73,23 @@ class ConcertAdapter(object):
         (self.service_name, self.service_description, self.service_priority, self.service_id) = concert_service_utilities.get_service_info()
         self.allocation_timeout = rospy.get_param('allocation_timeout', 15.0)  # seconds
 
-        # Checking the scheduler's KnownResources topic
+        # Check the scheduler's KnownResources topic
         try:
             rocon_python_comms.find_topic('scheduler_msgs/KnownResources', timeout=rospy.rostime.Duration(5.0), unique=True)
         except rocon_python_comms.NotFoundException as e:
             rospy.logerr("Could not locate the scheduler's known_resources topic. [%s]" % str(e))
             sys.exit(1)
 
-        # Setting up the requester
+        # Set up the requester
         self._set_requester(self.service_id)
         self.pending_requests = dict()
 
-        # Preparing a basket for storing allocated resources
+        # Prepare a basket for storing allocated resources
         # Form: {__resource_uri__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
         self.allocated_resources = dict()
+
+        # Prepare a basket for storing bridge publishers and subscribers
+        self.bridge_pubsubs = dict()
 
         # Starting a SOAP server as a thread
         try:
@@ -222,7 +227,7 @@ class ConcertAdapter(object):
 
 
 ################################################################
-# Communication between the BPEL engine and the SOAP server
+# Communication from the BPEL engine to the SOAP server
 ################################################################
     def receive_service_invocation(self, LinkGraph):
         """
@@ -329,6 +334,42 @@ class ConcertAdapter(object):
 
 
 ################################################################
+# Communication from the SOAP server to the BPEL engine
+################################################################
+    def _prepare_adapter2bpel_sub(self, interfaces):
+        for iface in interfaces:
+            rospy.Subscriber(iface.method, String, self.adapter2bpel_sub_callback, callback_args={
+                "address": iface.address,
+                "namespace": iface.namespace,
+                "method":iface.method,
+                "result_names": iface.result_names
+            })
+
+
+    def _adapter2bpel_sub_callback(self, msg):
+        self.send_msg_to_bpel()
+
+
+    def send_msg_to_bpel(self, address, namespace, method, params, result_names):
+        """
+        To send a SOAP message to BPEL
+
+        :param address:
+        :param namespace:
+        :param method:
+        :param params:
+        :param result_names:
+        :return:
+        """
+        client = SoapClient(
+            location = address, # "http://localhost:8080/ode/processes/A2B"
+            namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
+            soap_ns='soap')
+        response = client.call(method, **params)
+        print(response[result_names[0]][result_names[1]])
+
+
+################################################################
 # Resource allocation related methods
 ################################################################
     def _inquire_resources_to_allocate(self, linkgraph):
@@ -358,6 +399,9 @@ class ConcertAdapter(object):
         # Sending the request
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
+
+        # Prepare adapter2bpel interfaces
+        self._prepare_adapter2bpel_sub(linkgraph.interfaces)
 
         return request_id
 
@@ -435,13 +479,13 @@ class ConcertAdapter(object):
     #        # Publishing the message
     #        pub.publish(msg_instance)
 
+
     def _call_resource(self, topic_name, msg_dict):
         """
         :param topic_name:
         :param msg:
         :return:
-       """
-
+        """
         pub = self.allocated_resources[topic_name]
         msg_type = roslib.message.get_message_class(str(pub.type))
         msg_inst = msg_type()
@@ -477,6 +521,25 @@ class ConcertAdapter(object):
         resource.rapp = rocon_uri.parse(node.resource).rapp
         resource.uri = node.resource
         resource.remappings = [rocon_std_msgs.Remapping(e.remap_from, e.remap_to) for e in edges if e.start == node.id or e.finish == node.id]
+
+        for e in edges:
+            if e.start == node.id:
+                e.remap_from
+                e.remap_to
+                e.start
+                e.finish
+
+                sub_topic = e.remap_to + "_adapter"
+                pub_topic = e.remap_to
+                self.bridge_pubsubs[node.id] = (rospy.Subscriber(e.remap_to + "_adapter"), rospy.Publisher())
+
+            elif e.finish == node.id:
+                e.remap_from
+                e.remap_to
+                e.start
+                e.finish
+
+
         return resource
 
 
@@ -505,15 +568,6 @@ class ConcertAdapter(object):
         else:
             rospy.loginfo("No remapping info. The original topic name is returned.")
             return prev_topic
-
-
-    def send_msg_to_bpel(self, address, namespace, method, params, result_names):
-        client = SoapClient(
-            location = address, # "http://localhost:8080/ode/processes/A2B"
-            namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
-            soap_ns='soap')
-        response = client.call(method, **params)
-        print(response[result_names[0]][result_names[1]])
 
 
 ########################################################################################################
