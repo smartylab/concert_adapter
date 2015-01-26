@@ -89,9 +89,6 @@ class ConcertAdapter(object):
         # Form: {__resource_uri__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
         self.allocated_resources = dict()
 
-        # Prepare a basket for storing bridge publishers and subscribers
-        self.bridge_pubsubs = dict()
-
         # Starting a SOAP server as a thread
         try:
             threading.Thread(target=self._start_soap_server).start()
@@ -591,7 +588,7 @@ if __name__ == '__main__':
     adapter = ConcertAdapter()
 
     #ChatterTester(adapter).start()
-    TeleopTester(adapter).start()
+    #TeleopTester(adapter).start()
 
     rospy.spin()
     if rospy.is_shutdown():
