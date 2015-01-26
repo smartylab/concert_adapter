@@ -244,12 +244,14 @@ class ConcertAdapter(object):
         :param LinkGraph:
         :return string:
         """
-        # Converting input data (LinkGraph)
+        # Convert input data (LinkGraph)
         lg_name, linkgraph = self._convert_to_linkgraph(LinkGraph)
         rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
 
-        # Requesting resource allocations
+        # Request resource allocations
         self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+
+        # Prepare subscribers for the bpel
 
         return "Hi"
 
@@ -530,24 +532,6 @@ class ConcertAdapter(object):
         resource.rapp = rocon_uri.parse(node.resource).rapp
         resource.uri = node.resource
         resource.remappings = [rocon_std_msgs.Remapping(e.remap_from, e.remap_to) for e in edges if e.start == node.id or e.finish == node.id]
-
-        for e in edges:
-            if e.start == node.id:
-                e.remap_from
-                e.remap_to
-                e.start
-                e.finish
-
-                sub_topic = e.remap_to + "_adapter"
-                pub_topic = e.remap_to
-                self.bridge_pubsubs[node.id] = (rospy.Subscriber(e.remap_to + "_adapter"), rospy.Publisher())
-
-            elif e.finish == node.id:
-                e.remap_from
-                e.remap_to
-                e.start
-                e.finish
-
 
         return resource
 
