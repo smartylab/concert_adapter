@@ -143,10 +143,10 @@ class ConcertAdapter(object):
                     }],
                     'methods': [{
                         'Method': {
-                            'address',
-                            'namespace',
-                            'name',
-                            'return_name'
+                            'address': str,
+                            'namespace': str,
+                            'name': str,
+                            'return_name': str
                         }
                     }]
                 }
