@@ -4,9 +4,10 @@ adapter/adapter.py v0.1
 
 This module is to adapt requests from the BPEL engine to the concert framework.
 
-Author: Jae Yoo Lee <jaeyoo1981@gmail.com>, Moon Kwon Kim <mkdmkk@gmail.com>
-Since: 2014.10.20
+Authors: Jae Yoo Lee <jaeyoo1981@gmail.com>, Moon Kwon Kim <mkdmkk@gmail.com>, Chun Woo Park <cnsdnsla@gmail.com>
+Since: 2015.01.26
 """
+
 
 # Import Dependent Libraries
 from BaseHTTPServer import HTTPServer
@@ -141,6 +142,14 @@ class ConcertAdapter(object):
                             'finish': str,
                             'remap_from': str,
                             'remap_to': str
+                        }
+                    }],
+                    'methods': [{
+                        'Method': {
+                            'address',
+                            'namespace',
+                            'name',
+                            'return_name'
                         }
                     }]
                 }
@@ -336,17 +345,17 @@ class ConcertAdapter(object):
 ################################################################
 # Communication from the SOAP server to the BPEL engine
 ################################################################
-    def _prepare_adapter2bpel_sub(self, interfaces):
-        for iface in interfaces:
-            rospy.Subscriber(iface.method, String, self.adapter2bpel_sub_callback, callback_args={
-                "address": iface.address,
-                "namespace": iface.namespace,
-                "method":iface.method,
-                "result_names": iface.result_names
+    def _prepare_adapter2bpel_sub(self, methods):
+        for m in methods:
+            rospy.Subscriber(m.name, String, self.adapter2bpel_sub_callback, callback_args={
+                "address": m.address,
+                "namespace": m.namespace,
+                "name": m.name,
+                "return_name": m.return_name
             })
 
 
-    def _adapter2bpel_sub_callback(self, msg):
+    def _adapter2bpel_sub_callback(self, msg, callback_args):
         self.send_msg_to_bpel()
 
 
