@@ -38,6 +38,7 @@ import concert_msgs.msg as concert_msgs
 import concert_scheduler_requests.common as scheduler_common
 from std_msgs.msg import String
 
+
 # Import Testers
 from tester import TeleopTester
 from tester import ChatterTester
@@ -432,60 +433,10 @@ class ConcertAdapter(object):
                     # Preparing a publisher
                     topic_name= self._remap_topic(topic.id, linkgraph.edges)
                     message_type=roslib.message.get_message_class(topic.type)
-
-                    #message_type=self._load_msg(topic.type)
-
-                    pub = rospy.Publisher(topic_name, message_type,
-                        queue_size=DEFAULT_QUEUE_SIZE)
-                    # Adding the allocated resources to allocated_resources
-                    #self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
-
-                    #For finding a message type as string
-                    #pub_type= pub.type
-
+                    pub = rospy.Publisher(topic_name, message_type, queue_size=DEFAULT_QUEUE_SIZE)
                     rospy.loginfo("Topic: %s, Topic Type: %s" % (topic_name, message_type))
-                    self.allocated_resources[topic_name] = pub
-
-
-        ##### TEST CODE #####
-        r = rospy.Rate(10)
-        while not rospy.is_shutdown():
-            self._call_resource("/turtlebot/cmd_vel", {'linear': {'x':0.1, 'y':0.0, 'z':0.0}, 'angular': {'x':0.0, 'y':0.0, 'z':0.0}})
-            r.sleep()
-
-                #for resource in request.msg.resources:
-
-                    # Preparing a publisher
-                #    pubs = [rospy.Publisher(
-                #        self._remap_topic(topic.id, linkgraph.edges),
-                #        self._load_msg(topic.type),
-                #        queue_size=DEFAULT_QUEUE_SIZE
-                #    ) for topic in linkgraph.topics]
-
-                #    rospy.loginfo("Publishers are generated for the resource, %s. [%s]" % (
-                #        resource.uri,
-                #        ", ".join(["%s - %s" % (pub.name, pub.data_class) for pub in pubs])))
-
                     # Adding the allocated resources to allocated_resources
-                    #self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
-                #    self.allocated_resources[resource.uri] = {'resource': resource, 'publishers': pubs}
-
-
-    #def _call_resource(self, resource_id, msg):
-    #    """
-
-    #    :param resource_id:
-    #    :param msg:
-    #    :return:
-    #   """
-    #    pubs = self.allocated_resources[resource_id].publishers
-    #    for pub in pubs:
-    #        # Building a message from the parameter, msg
-    #        msg_instance = pub.data_class()
-    #        # Property initialization
-
-    #        # Publishing the message
-    #        pub.publish(msg_instance)
+                    self.allocated_resources[topic_name] = pub
 
 
     def _call_resource(self, topic_name, msg_dict):
@@ -499,17 +450,17 @@ class ConcertAdapter(object):
         msg_inst = msg_type()
         self.alloc_message(msg_inst, msg_dict)
 
-        #allocate message to msg_instance
+        # Allocate message to msg_instance
         pub.publish(msg_inst)
 
 
     def alloc_message(self, msg_inst, msg_dict):
-        #for key in msg_dict.keys():
         for key in msg_dict.keys():
             if type(msg_dict[key]) is dict:
                 self.alloc_message(getattr(msg_inst, key), msg_dict[key])
             else:
                 setattr(msg_inst, key, msg_dict[key])
+
 
     def release_allocated_resources(self):
         self.requester.cancel_all()
@@ -567,23 +518,6 @@ if __name__ == '__main__':
     rospy.loginfo("Starting the concert adapter...")
 
     rospy.init_node(NODE_NAME)
-
-    #geometry_msgs/Twist
-    #adapter = ConcertAdapter()
-    #msg_inst = adapter._load_msg('geometry_msgs/Twist')
-
-    #msg_type = roslib.message.get_message_class('geometry_msgs/Twist')
-    #msg_inst = msg_type()
-
-    #msg_dict = {
-    #    'linear': {'x':0.1, 'y':0.0, 'z':0.0}, 'angular': {'x':0.0, 'y':0.0, 'z':0.0}
-    #}
-    #adapter.alloc_message(msg_inst, msg_dict)
-
-    #rospy.loginfo("=========Assign!!!!!!===========")
-    #rospy.loginfo(str(msg_inst))
-    #rospy.loginfo(str(msg_inst.linear))
-    #rospy.loginfo(str(msg_inst.linear.x))
 
     adapter = ConcertAdapter()
 
