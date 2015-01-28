@@ -11,6 +11,7 @@ Since: 2015.01.26
 
 # Import Dependent Libraries
 from BaseHTTPServer import HTTPServer
+import simplejson
 import sys
 import threading
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
@@ -244,12 +245,17 @@ class ConcertAdapter(object):
         """
         # Convert input data (LinkGraph)
         lg_name, linkgraph = self._convert_to_linkgraph(LinkGraph)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
+        rospy.loginfo("Linkgraph loaded:\n%s" % linkgraph)
 
         # Request resource allocations
-        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+        # self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
 
-        # Prepare subscribers for the bpel
+        # Prepare subscribers for the adapter2bpel communication
+        rospy.loginfo("Method info loaded:\n%s" % LinkGraph['methods'])
+        self._prepare_adapter2bpel_sub(LinkGraph['methods'])
+
+        time.sleep(1)
+        rospy.Publisher(LinkGraph['methods'][0]['Method']['name'], String("Hello BPEL."))
 
         return "Hi"
 
@@ -262,7 +268,7 @@ class ConcertAdapter(object):
         '''
         # Converting input data to LinkGraph
         lg_name, linkgraph = self._convert_to_linkgraph(Node)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % linkgraph)
+        rospy.loginfo("Linkgraph loaded:\n%s" % linkgraph)
 
         # Requesting resource allocations
         self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
@@ -347,16 +353,13 @@ class ConcertAdapter(object):
 ################################################################
     def _prepare_adapter2bpel_sub(self, methods):
         for m in methods:
-            rospy.Subscriber(m.name, String, self.adapter2bpel_sub_callback, callback_args={
-                "address": m.address,
-                "namespace": m.namespace,
-                "name": m.name,
-                "return_name": m.return_name
-            })
+            method = m['Method']
+            rospy.Subscriber(method['name'], String, self._adapter2bpel_sub_callback, callback_args=method)
 
 
     def _adapter2bpel_sub_callback(self, msg, callback_args):
-        self.send_msg_to_bpel()
+        self.send_msg_to_bpel(callback_args['address'], callback_args['namespace'], callback_args['name'],
+                              msg, callback_args['result_names'])
 
 
     def send_msg_to_bpel(self, address, namespace, method, params, result_names):
