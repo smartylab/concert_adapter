@@ -14,6 +14,7 @@ from BaseHTTPServer import HTTPServer
 import simplejson
 import sys
 import threading
+import thread
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
 from pysimplesoap.client import SoapClient
 import yaml
@@ -96,7 +97,6 @@ class ConcertAdapter(object):
             threading.Thread(target=self._start_soap_server).start()
         except:
             rospy.loginfo("Error on SOAP Server Thread...")
-
 
 
 ########################################################################################################
@@ -254,10 +254,15 @@ class ConcertAdapter(object):
         rospy.loginfo("Method info loaded:\n%s" % LinkGraph['methods'])
         self._prepare_adapter2bpel_sub(LinkGraph['methods'])
 
-        time.sleep(1)
-        rospy.Publisher(LinkGraph['methods'][0]['Method']['name'], String("Hello BPEL."))
+        threading.Thread(target=self.test_adapter2bpel).start()
 
         return "Hi"
+
+
+    def test_adapter2bpel(self):
+        time.sleep(2)
+        pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
+        pub.publish(String(simplejson.dumps({'in':"Hello BPEL."})))
 
 
     def receive_single_node_service_invocation(self, Node):
@@ -352,17 +357,22 @@ class ConcertAdapter(object):
 # Communication from the SOAP server to the BPEL engine
 ################################################################
     def _prepare_adapter2bpel_sub(self, methods):
+        self.adapter2bpel_sub = []
         for m in methods:
             method = m['Method']
-            rospy.Subscriber(method['name'], String, self._adapter2bpel_sub_callback, callback_args=method)
+            rospy.loginfo("Prepare the method %s" % (method))
+            pub = rospy.Publisher("/"+NODE_NAME+"/"+method['name'], String)
+            time.sleep(0.5)
+            sub = rospy.Subscriber("/"+NODE_NAME+"/"+method['name'], String, self.adapter2bpel_subs_callback, callback_args=method)
 
 
-    def _adapter2bpel_sub_callback(self, msg, callback_args):
+    def adapter2bpel_subs_callback(self, msg, callback_args=None):
+        rospy.loginfo("Message Received (Adapter to BPEL): %s" % (msg))
         self.send_msg_to_bpel(callback_args['address'], callback_args['namespace'], callback_args['name'],
-                              msg, callback_args['result_names'])
+                              simplejson.loads(msg.data), callback_args['return_name'])
 
 
-    def send_msg_to_bpel(self, address, namespace, method, params, result_names):
+    def send_msg_to_bpel(self, address, namespace, method, params, return_name):
         """
         To send a SOAP message to BPEL
 
@@ -377,8 +387,9 @@ class ConcertAdapter(object):
             location = address, # "http://localhost:8080/ode/processes/A2B"
             namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
             soap_ns='soap')
-        response = client.call(method, **params)
-        print(response[result_names[0]][result_names[1]])
+        response = client.call(method, **{'in':params})
+        return_name_splited = return_name.split('/')
+        rospy.loginfo("Adapter to BPEL Result: %s" % (response[return_name_splited[0]][return_name_splited[1]]))
 
 
 ################################################################
@@ -411,9 +422,6 @@ class ConcertAdapter(object):
         # Sending the request
         rospy.loginfo("The resources are requested with the id: %s" % request_id)
         self.requester.send_requests()
-
-        # Prepare adapter2bpel interfaces
-        self._prepare_adapter2bpel_sub(linkgraph.interfaces)
 
         return request_id
 
@@ -517,6 +525,12 @@ class ConcertAdapter(object):
 ########################################################################################################
 # Main method to launch the adapter
 ########################################################################################################
+
+
+def callback(msg):
+    rospy.loginfo(msg)
+
+
 if __name__ == '__main__':
     rospy.loginfo("Starting the concert adapter...")
 
@@ -528,6 +542,8 @@ if __name__ == '__main__':
     #TeleopTester(adapter).start()
 
     rospy.spin()
+
     if rospy.is_shutdown():
-        adapter._stop_soap_server()
-        adapter.release_allocated_resources()
+        pass
+        # adapter._stop_soap_server()
+        # adapter.release_allocated_resources()
