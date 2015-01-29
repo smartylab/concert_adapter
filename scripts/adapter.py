@@ -148,7 +148,8 @@ class ConcertAdapter(object):
                             'address': str,
                             'namespace': str,
                             'name': str,
-                            'return_name': str
+                            'return_name': str,
+                            'param': str
                         }
                     }]
                 }
@@ -260,9 +261,9 @@ class ConcertAdapter(object):
 
 
     def test_adapter2bpel(self):
-        time.sleep(2)
-        pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
-        pub.publish(String(simplejson.dumps({'in':"Hello BPEL."})))
+        time.sleep(5)
+        pub = rospy.Publisher("/concert_adapter/sayHello", String, queue_size=10)
+        pub.publish("Hello BPEL.")
 
 
     def receive_single_node_service_invocation(self, Node):
@@ -361,18 +362,16 @@ class ConcertAdapter(object):
         for m in methods:
             method = m['Method']
             rospy.loginfo("Prepare the method %s" % (method))
-            pub = rospy.Publisher("/"+NODE_NAME+"/"+method['name'], String)
-            time.sleep(0.5)
             sub = rospy.Subscriber("/"+NODE_NAME+"/"+method['name'], String, self.adapter2bpel_subs_callback, callback_args=method)
 
 
     def adapter2bpel_subs_callback(self, msg, callback_args=None):
         rospy.loginfo("Message Received (Adapter to BPEL): %s" % (msg))
         self.send_msg_to_bpel(callback_args['address'], callback_args['namespace'], callback_args['name'],
-                              simplejson.loads(msg.data), callback_args['return_name'])
+                              callback_args['param'], msg.__getattribute__('data'), callback_args['return_name'])
 
 
-    def send_msg_to_bpel(self, address, namespace, method, params, return_name):
+    def send_msg_to_bpel(self, address, namespace, method, param, msg, return_name):
         """
         To send a SOAP message to BPEL
 
@@ -383,11 +382,21 @@ class ConcertAdapter(object):
         :param result_names:
         :return:
         """
+        rospy.loginfo("===== Prepare a SOAP client =====")
+        rospy.loginfo("Address: %s" % address)
+        rospy.loginfo("NS: %s" % namespace)
+        rospy.loginfo("=================================")
+
         client = SoapClient(
             location = address, # "http://localhost:8080/ode/processes/A2B"
             namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
             soap_ns='soap')
-        response = client.call(method, **{'in':params})
+        rospy.loginfo("Sending the message to BPEL... %s(%s)" % (method, msg))
+        # response = client.call(method, **(simplejson.loads(params)))
+        param_dict = []
+        param_dict[param] = msg
+        response = client.call(method, **param_dict)
+        rospy.loginfo("The message is sent.")
         return_name_splited = return_name.split('/')
         rospy.loginfo("Adapter to BPEL Result: %s" % (response[return_name_splited[0]][return_name_splited[1]]))
 
@@ -544,6 +553,5 @@ if __name__ == '__main__':
     rospy.spin()
 
     if rospy.is_shutdown():
-        pass
-        # adapter._stop_soap_server()
-        # adapter.release_allocated_resources()
+        adapter._stop_soap_server()
+        adapter.release_allocated_resources()
