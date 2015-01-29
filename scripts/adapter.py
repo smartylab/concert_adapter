@@ -272,6 +272,7 @@ class ConcertAdapter(object):
     def test_adapter2bpel(self):
         time.sleep(5)
         pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
+        time.sleep(1)
         pub.publish("Hello BPEL.")
 
 
@@ -402,12 +403,13 @@ class ConcertAdapter(object):
             soap_ns='soap')
         rospy.loginfo("Sending the message to BPEL... %s(%s)" % (method, msg))
         # response = client.call(method, **(simplejson.loads(params)))
-        param_dict = []
+        param_dict = dict()
         param_dict[param] = msg
         response = client.call(method, **param_dict)
         rospy.loginfo("The message is sent.")
         return_name_splited = return_name.split('/')
-        rospy.loginfo("Adapter to BPEL Result: %s" % (response[return_name_splited[0]][return_name_splited[1]]))
+        rospy.loginfo("Result Name: %s" % (return_name_splited))
+        rospy.loginfo("Adapter to BPEL Result: %s" % (response.__getattr__(return_name_splited[0]).__getattr__(return_name_splited[1])))
 
 
 ################################################################
