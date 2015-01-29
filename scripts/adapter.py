@@ -262,7 +262,7 @@ class ConcertAdapter(object):
 
     def test_adapter2bpel(self):
         time.sleep(5)
-        pub = rospy.Publisher("/concert_adapter/sayHello", String, queue_size=10)
+        pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
         pub.publish("Hello BPEL.")
 
 
