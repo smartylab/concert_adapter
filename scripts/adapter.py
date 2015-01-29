@@ -193,6 +193,15 @@ class ConcertAdapter(object):
             }
         )
 
+
+        # To register a method for Single Node Service Invocation
+        dispatcher.register_function('invoke_rapp', self._invoke_rapp, returns={'out': str},
+            args={
+                'svc_name': str
+            }
+        )
+
+
         # To register a method for Releasing Allocated Resources
         dispatcher.register_function('release_allocated_resources', self.release_allocated_resources, returns={'out': bool}, args={})
 
@@ -472,6 +481,12 @@ class ConcertAdapter(object):
 
         # Allocate message to msg_instance
         pub.publish(msg_inst)
+
+
+    def _invoke_rapp(self, svc_name):
+        if svc_name == "turtlebot":
+            rospy.loginfo("invoke turtlebot teleop....")
+
 
 
     def alloc_message(self, msg_inst, msg_dict):
