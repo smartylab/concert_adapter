@@ -1,5 +1,6 @@
 <launch>
     <arg name="local_machine_only" default="false"/>
+
     <include file="$(find concert_master)/launch/concert_master.launch">
         <arg name="concert_name" value="Concert Adapter"/>
         <arg name="services" value="concert_adapter/concert_adapter.services"/>

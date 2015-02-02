@@ -39,6 +39,7 @@ import scheduler_msgs.msg as scheduler_msgs
 import concert_msgs.msg as concert_msgs
 import concert_scheduler_requests.common as scheduler_common
 from std_msgs.msg import String
+from kobuki_msgs.msg import BumperEvent
 
 
 # Import Testers
@@ -68,7 +69,9 @@ class ConcertAdapter(object):
         'httpd',
         'pending_requests',
         'allocated_resources',
-        'adapter2bpel_sub'
+        'adapter2bpel_sub',
+        'rapp_pub',
+        'bumper_sub'
     ]
 
 
@@ -97,6 +100,12 @@ class ConcertAdapter(object):
             threading.Thread(target=self._start_soap_server).start()
         except:
             rospy.loginfo("Error on SOAP Server Thread...")
+
+        # Set Publisher to invoke rapp
+        rospy.loginfo("Publisher to invoke rapp is set...")
+        self.rapp_pub = rospy.Publisher('/service_invoke', String, queue_size=DEFAULT_QUEUE_SIZE)
+
+
 
 
 ########################################################################################################
@@ -264,7 +273,7 @@ class ConcertAdapter(object):
         rospy.loginfo("Method info loaded:\n%s" % LinkGraph['methods'])
         self._prepare_adapter2bpel_sub(LinkGraph['methods'])
 
-        threading.Thread(target=self.test_adapter2bpel).start()
+        #threading.Thread(target=self.test_adapter2bpel).start()
 
         return "Hi"
 
@@ -367,6 +376,14 @@ class ConcertAdapter(object):
 ################################################################
 # Communication from the SOAP server to the BPEL engine
 ################################################################
+    def _send_bumper_message(self, msg):
+        pub1 = rospy.Publisher("/concert_adapter/invoke_second_service", String, queue_size=10)
+        rospy.loginfo("Bumper MSG...............")
+        rospy.loginfo("Bumper MSG...............")
+        rospy.loginfo("Bumper MSG...............")
+        pub1.publish("Return")
+
+
     def _prepare_adapter2bpel_sub(self, methods):
         self.adapter2bpel_sub = []
         for m in methods:
@@ -486,9 +503,27 @@ class ConcertAdapter(object):
 
 
     def _invoke_rapp(self, svc_name):
+        rospy.loginfo("Receive a Request to invoke %s", svc_name)
+
         if svc_name == "turtlebot":
             rospy.loginfo("invoke turtlebot teleop....")
+            self.rapp_pub.publish(svc_name)
+        elif svc_name == "spheroball":
+            rospy.loginfo("invoke spheroball teleop....")
+            self.rapp_pub.publish(svc_name)
+        elif svc_name == "stop":
+            pub2 = rospy.Publisher("/turtlebot_stop", String, queue_size=10)
+            pub2.publish("Stop")
+        elif svc_name == "wandering":
+            rospy.loginfo("Register Bumper Event Subscriber........")
+            rospy.loginfo("Register Bumper Event Subscriber........")
+            rospy.loginfo("Register Bumper Event Subscriber........")
+            self.bumper_sub = rospy.Subscriber("/mobile_base/events/bumper", BumperEvent, self._send_bumper_message)
+            pub2 = rospy.Publisher("/start_wandering", String, queue_size=10)
+            pub2.publish("Start")
 
+
+        return "Success"
 
 
     def alloc_message(self, msg_inst, msg_dict):
@@ -566,9 +601,8 @@ if __name__ == '__main__':
 
     #ChatterTester(adapter).start()
     #TeleopTester(adapter).start()
-
+    #adapter._invoke_rapp("turtlebot")
     rospy.spin()
 
     if rospy.is_shutdown():
-        adapter._stop_soap_server()
         adapter.release_allocated_resources()
