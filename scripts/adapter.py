@@ -71,6 +71,7 @@ class ConcertAdapter(object):
         'allocated_resources',
         'adapter2bpel_sub',
         'rapp_pub',
+        'rapp_pub2',
         'bumper_sub'
     ]
 
@@ -104,6 +105,7 @@ class ConcertAdapter(object):
         # Set Publisher to invoke rapp
         rospy.loginfo("Publisher to invoke rapp is set...")
         self.rapp_pub = rospy.Publisher('/service_invoke', String, queue_size=DEFAULT_QUEUE_SIZE)
+        self.rapp_pub2 = rospy.Publisher("/sphero_backstep_cmd", String, queue_size=10)
 
 
 
@@ -510,7 +512,7 @@ class ConcertAdapter(object):
             self.rapp_pub.publish(svc_name)
         elif svc_name == "spheroball":
             rospy.loginfo("invoke spheroball teleop....")
-            self.rapp_pub.publish(svc_name)
+            self.rapp_pub2.publish(svc_name)
         elif svc_name == "stop":
             pub2 = rospy.Publisher("/turtlebot_stop", String, queue_size=10)
             pub2.publish("Stop")
