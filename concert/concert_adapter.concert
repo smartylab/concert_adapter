@@ -5,7 +5,7 @@
     <arg name="local_machine_only" value="$(arg local_machine_only)"/>
   </launch>
   <launch title="turtlebot_bringup:11312" package="turtlebot_bringup" name="concert_client.launch" port="11312"/>  
-  <launch title="concert_turtlebot:11313" package="concert_turtlebot" name="concert.launch" port="11313"/>
+  <launch title="concert_turtlebot:11313" package="concert_turtlebot" name="turtlebot.launch" port="11313"/>
   <launch title="turtlebot_teleop:11314" package="turtlebot_concert" name="teleop.launch" port="11314"/>
   <launch title="turtlebot_wanderer:11315" package="turtlebot_wanderer" name="turtlebot_wanderer.launch" port="11315"/>
   <launch title="sphero_client:11316" package="sphero_bringup" name="concert_client.launch" port="11316"/>
