@@ -1,0 +1,5 @@
+display: ActionServerApp
+description: Default ros style listener tutorial
+compatibility: rocon:/
+launch: action_server_app.launch
+public_interface: action_server_app.interface

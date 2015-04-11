@@ -1,0 +1,3 @@
+<launch>
+  <node name="action_server_app" pkg="actionlib_tutorials" type="fibonacci_server" required="true"/>
+</launch>

@@ -1,0 +1,7 @@
+publishers: []
+subscribers: []
+services: []
+action_clients: []
+action_servers:
+  - name: fibonacci
+    type: actionlib_tutorials/Fibonacci

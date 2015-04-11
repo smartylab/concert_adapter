@@ -1,0 +1,6 @@
+display: ServiceServerApp
+description: Default ros style listener tutorial
+compatibility: rocon:/
+launch: service_server_app.launch
+public_interface: service_server_app.interface
+
