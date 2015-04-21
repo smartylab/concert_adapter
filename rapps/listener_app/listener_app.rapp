@@ -1,0 +1,5 @@
+display: PubSubApp
+description: Default ros style listener tutorial
+compatibility: rocon:/
+launch: listener_app.launch
+public_interface: listener_app.interface
