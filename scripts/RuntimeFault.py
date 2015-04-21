@@ -52,7 +52,7 @@ class ResourceSchedulerNotAvailableFault(Fault):
 
         # To call __init__ method of super class (Fault) to set
         # cause of fault and its handler
-        Fault.__init__(self, adapter, 'Resource Scheduler', handler.ErrorReporter(adapter))
+        Fault.__init__(self, adapter, 'Resource Scheduler', handler.FaultReporter(adapter))
 
         rospy.loginfo("ResourceSchedulerNotAvailableFault is raised...")
 
@@ -116,7 +116,7 @@ class ResourceAllocationTimeOutFault(Fault):
                 rospy.loginfo("########## Step 3a. Send an error message to BPEL ##########")
 
                 # set a handler to send an error message to BPEL
-                self.handler = handler.ErrorReporter(self.adapter)
+                self.handler = handler.FaultReporter(self.adapter)
 
                 # execute an handling action
                 self.handler.doRemedyAction(self.method, self.msg)
@@ -139,7 +139,7 @@ class ResourceAllocationTimeOutFault(Fault):
             # set a handler to send an error message to BPEL
 
             rospy.loginfo("########## Step 4. Send an error message to BPEL ##########")
-            self.handler = handler.ErrorReporter(self.adapter)
+            self.handler = handler.FaultReporter(self.adapter)
 
             # change flag value
             ResourceAllocationTimeOutFault.occurrence = False
@@ -258,7 +258,7 @@ class RappInvocationTimeOutFault(Fault):
                 rospy.loginfo("########## Step 3a. Raise RappNotAvailableFault ##########")
 
                 # set a handler to send an error message to BPEL
-                self.handler = handler.ErrorReporter(self.adapter)
+                self.handler = handler.FaultReporter(self.adapter)
 
                 # set method
                 self.method = "timeout_method"
@@ -270,7 +270,7 @@ class RappInvocationTimeOutFault(Fault):
             # set a handler to send an error message to BPEL
 
             rospy.loginfo("########## Step 4. Send an error message to BPEL ##########")
-            self.handler = handler.ErrorReporter(self.adapter)
+            self.handler = handler.FaultReporter(self.adapter)
 
             # change flag value
             RappInvocationTimeOutFault.occurrence = False
@@ -338,7 +338,7 @@ class InvalidReturnFault(Fault):
 
             # Step 3b. To send an error message to BPEL
             rospy.loginfo("########## Step 3b. Send an error message to BPEL ##########")
-            self.handler = handler.ErrorReporter(self.adapter)
+            self.handler = handler.FaultReporter(self.adapter)
 
             # set method
             self.method = "invalidreturn_fault"

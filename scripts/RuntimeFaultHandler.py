@@ -29,8 +29,8 @@ class RuntimeFaultHandler:
         '''
         self.adapter = adapter
 
-class ErrorReporter(RuntimeFaultHandler):
-    # To initialize ErrorReporter
+class FaultReporter(RuntimeFaultHandler):
+    # To initialize FaultReporter
     def __init__(self, adapter):
         RuntimeFaultHandler.__init__(self)
         self.__set_adapter(adapter) # To set an adapter
