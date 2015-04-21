@@ -41,6 +41,9 @@ import concert_scheduler_requests.common as scheduler_common
 from std_msgs.msg import String
 from kobuki_msgs.msg import BumperEvent
 
+# Import Fault classes
+import RuntimeFault as runtimefault
+import RuntimeFaultHandler as faulthandler
 
 # Import Testers
 from tester import TeleopTester
@@ -72,7 +75,8 @@ class ConcertAdapter(object):
         'adapter2bpel_sub',
         'rapp_pub',
         'rapp_pub2',
-        'bumper_sub'
+        'bumper_sub',
+        'test_sub'
     ]
 
 
@@ -107,8 +111,74 @@ class ConcertAdapter(object):
         self.rapp_pub = rospy.Publisher('/service_invoke', String, queue_size=DEFAULT_QUEUE_SIZE)
         self.rapp_pub2 = rospy.Publisher("/sphero_backstep_cmd", String, queue_size=10)
 
+        # Set Subscriber for Testing
+        self.test_sub = rospy.Subscriber("/fault/test", String, self._test)
+        rospy.loginfo("Register Subscriber: /fault/test")
 
 
+    def _test(self, msg):
+        rospy.loginfo("Testing Start...")
+
+        linkgraph = self._make_sample_linkgraph()
+        # To find a node that has the same id with the given rapp
+        for node in linkgraph.nodes:
+            if node.id == 'turtlebot':
+                rapp = node
+
+        rospy.loginfo(rapp)
+        try:
+            #raise runtimefault.ResourceSchedulerNotAvailableFault(self)
+            #raise runtimefault.ResourceAllocationTimeOutFault(self, linkgraph)
+            #raise runtimefault.RappNotAvailableFault(self, rapp, linkgraph)
+            #raise runtimefault.RappInvocationTimeOutFault(self, rapp, linkgraph)
+            raise runtimefault.InvalidReturnFault(self, rapp, linkgraph)
+        except runtimefault.ResourceSchedulerNotAvailableFault:
+            pass
+        except runtimefault.ResourceAllocationTimeOutFault:
+            pass
+        except runtimefault.RappNotAvailableFault:
+            pass
+        except runtimefault.RappInvocationTimeOutFault:
+            pass
+        except runtimefault.InvalidReturnFault:
+            pass
+
+
+
+    def _make_sample_linkgraph(self):
+        linkgraph_yaml = yaml.load("""
+            name: "Teleop"
+            nodes:
+              - id: turtlebot
+                uri: rocon:/turtlebot/*/*#turtlebot_rapps/teleop
+            topics:
+              - id: teleop
+                type: geometry_msgs/Twist
+            actions: []
+            edges:
+              - start: teleop
+                finish: turtlebot
+                remap_from:
+                remap_to: /turtlebot/cmd_vel
+        """)
+        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
+        rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
+        return impl
+
+
+    def _make_sample_rapp(self):
+        linkgraph_yaml = yaml.load("""
+            name: "Rapp Test"
+            nodes:
+              - id: turtlebot
+                uri: rocon:/turtlebot/*/*#turtlebot_rapps/teleop
+        """)
+        rapp_name, rapp = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
+        rospy.loginfo("Sample Rapp loaded:\n%s" % rapp)
+        return rapp
+
+    def resend_topic(self, rapp, topic):
+        rospy.loginfo("resend a Topic to rapp ")
 
 ########################################################################################################
 # Preparation for adaptation: SOAP Server
@@ -280,6 +350,16 @@ class ConcertAdapter(object):
         return "Hi"
 
 
+    def reallocate_resources(self, linkgraph):
+        rospy.loginfo("Request re-allocate resources...")
+        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
+
+
+    def reallocate_rapp(self, rapp):
+        rospy.loginfo("Request re-allocate rapp...")
+        #self.wait_allocation(self._inquire_resources_to_allocate(rapp))
+
+
     def test_adapter2bpel(self):
         time.sleep(5)
         pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
@@ -319,8 +399,12 @@ class ConcertAdapter(object):
                 timeout = timeout - 1
             else:
                 self.release_allocated_resources()
-                raise OSError("Timeout for Allocating Resources")
-                sys.exit(1)
+                #raise OSError("Timeout for Allocating Resources")
+                #sys.exit(1)
+                try:
+                    raise runtimefault.ResourceAllocationTimeOutFault(self, self._make_sample_linkgraph())
+                except runtimefault.ResourceAllocationTimeOutFault:
+                    pass
 
 
     def _convert_to_linkgraph(self, linkgraph):
