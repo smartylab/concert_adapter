@@ -53,7 +53,7 @@ class FaultReporter(RuntimeFaultHandler):
             namespace = namespace,
             soap_ns= 'soap')
 
-        method = "process"
+        method = "reportRuntimeFault"
         rospy.loginfo("Sending the message to BPEL... %s(%s)" % (method, msg))
 
         param_dict = dict()

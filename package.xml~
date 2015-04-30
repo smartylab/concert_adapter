@@ -41,6 +41,12 @@
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>message_generation</build_depend>
+  <run_depend>gateway_msgs</run_depend>
+  <run_depend>roslib</run_depend>
+  <run_depend>rospy</run_depend>
+  <run_depend>rospy_tutorials</run_depend>
+  <run_depend>topic_tools</run_depend>
+  <run_depend>actionlib_tutorials</run_depend>
   <run_depend>message_runtime</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
@@ -49,6 +55,7 @@
     <!-- <metapackage/> -->
     <concert_service>services/adapter/adapter.service</concert_service>
     <!-- Other tools can request additional information be placed here -->
+
     <rocon_app>rapps/listener_app/listener_app.rapp</rocon_app>
     <rocon_app>rapps/service_server_app/service_server_app.rapp</rocon_app>
     <rocon_app>rapps/action_server_app/action_server_app.rapp</rocon_app>
