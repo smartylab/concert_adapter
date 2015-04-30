@@ -16,42 +16,26 @@ import sys
 import threading
 
 from pysimplesoap.server import SoapDispatcher, SOAPHandler
-from pysimplesoap.client import SoapClient
-import yaml
 import time
 
 import types
 import json
 
-# Import Dependent Modules of ROS, Rocon, and Concert
 import rospy
 import rocon_python_comms
 import rocon_uri
 import concert_service_utilities
 import concert_scheduler_requests
-import concert_service_link_graph
+
 import roslib.message
 import genpy.rostime
 
 import actionlib
 
-import actionlib_tutorials.msg
-
 # Import Messages
 import rocon_std_msgs.msg as rocon_std_msgs
 import scheduler_msgs.msg as scheduler_msgs
 import concert_msgs.msg as concert_msgs
-from std_msgs.msg import String
-
-
-# Import Fault classes
-import RuntimeFault as runtimefault
-import RuntimeFaultHandler as faulthandler
-
-# Import Testers
-from tester import TeleopTester
-from tester import ChatterTester
-
 
 # Constants
 NODE_NAME = 'concert_adapter'
@@ -78,10 +62,8 @@ class ConcertAdapter(object):
         'linkgraph_info',
         'publishers',
         'action_clients_map',
-        'service_proxies_map',
-        'callback_bpel_method_map'
+        'service_proxies_map'
     ]
-
 
     def __init__(self):
         # Initialization
@@ -99,15 +81,12 @@ class ConcertAdapter(object):
         self._set_requester(self.service_id)
         self.pending_requests = dict()
 
+        # Prepare a basket for storing allocated resources
+        # Form: {__resource_uri__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
         self.linkgraph_info = dict()
         self.publishers = dict()
         self.action_clients_map = dict()
         self.service_proxies_map = dict()
-        self.callback_bpel_method_map = dict()
-
-        # Prepare a basket for storing allocated resources
-        # Form: {__resource_uri__:{resource:__Resource.msg__, publisher:__Publisher__}, ...}
-        self.allocated_resources = dict()
 
         # Starting a SOAP server as a thread
         try:
@@ -115,75 +94,6 @@ class ConcertAdapter(object):
         except:
             rospy.loginfo("Error on SOAP Server Thread...")
 
-        # Set Publisher to invoke rapp
-        #rospy.loginfo("Publisher to invoke rapp is set...")
-        #self.rapp_pub = rospy.Publisher('/service_invoke', String, queue_size=DEFAULT_QUEUE_SIZE)
-        #self.rapp_pub2 = rospy.Publisher("/sphero_backstep_cmd", String, queue_size=10)
-
-        # Set Subscriber for Testing
-        #self.test_sub = rospy.Subscriber("/fault/test", String, self._test)
-        rospy.loginfo("Register Subscriber: /fault/test")
-
-
-    def _test(self, msg):
-        rospy.loginfo("Testing Start...")
-
-        linkgraph = self._make_sample_linkgraph()
-        # To find a node that has the same id with the given rapp
-        for node in linkgraph.nodes:
-            if node.id == 'turtlebot':
-                rapp = node
-
-        rospy.loginfo(rapp)
-        try:
-            raise runtimefault.InvalidReturnFault(self, rapp, linkgraph)
-        except runtimefault.ResourceSchedulerNotAvailableFault:
-            pass
-        except runtimefault.ResourceAllocationTimeOutFault:
-            pass
-        except runtimefault.RappNotAvailableFault:
-            pass
-        except runtimefault.RappInvocationTimeOutFault:
-            pass
-        except runtimefault.InvalidReturnFault:
-            pass
-
-
-
-    def _make_sample_linkgraph(self):
-        linkgraph_yaml = yaml.load("""
-            name: "Teleop"
-            nodes:
-              - id: turtlebot
-                uri: rocon:/turtlebot/*/*#turtlebot_rapps/teleop
-            topics:
-              - id: teleop
-                type: geometry_msgs/Twist
-            actions: []
-            edges:
-              - start: teleop
-                finish: turtlebot
-                remap_from:
-                remap_to: /turtlebot/cmd_vel
-        """)
-        impl_name, impl = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
-        rospy.loginfo("Sample linkgraph loaded:\n%s" % impl)
-        return impl
-
-
-    def _make_sample_rapp(self):
-        linkgraph_yaml = yaml.load("""
-            name: "Rapp Test"
-            nodes:
-              - id: turtlebot
-                uri: rocon:/turtlebot/*/*#turtlebot_rapps/teleop
-        """)
-        rapp_name, rapp = concert_service_link_graph.load_linkgraph_from_yaml(linkgraph_yaml)
-        rospy.loginfo("Sample Rapp loaded:\n%s" % rapp)
-        return rapp
-
-    def resend_topic(self, rapp, topic):
-        rospy.loginfo("resend a Topic to rapp ")
 
 ########################################################################################################
 # Preparation for adaptation: SOAP Server
@@ -196,7 +106,7 @@ class ConcertAdapter(object):
         dispatcher = SoapDispatcher('concert_adapter_soap_server', location = SOAP_SERVER_ADDRESS, action = SOAP_SERVER_ADDRESS,
                 namespace = "http://smartylab.co.kr/products/op/adapter", prefix="tns", ns = True)
 
-         # To register a method for LinkGraph Service Invocation
+        # To register a method for LinkGraph Service Invocation
         dispatcher.register_function('invoke_adapter', self.receive_service_invocation, returns={'out': str},
             args={
                 'LinkGraph': {
@@ -245,7 +155,6 @@ class ConcertAdapter(object):
                     }],
                     'methods': [{
                         'Method': {
-                            'id': str,
                             'address': str,
                             'namespace': str,
                             'name': str,
@@ -269,35 +178,18 @@ class ConcertAdapter(object):
         dispatcher.register_function('send_action_msg', self._send_action_msg, returns={'out': str},
             args={
                 'namespace': str,
-                'message_val': str,
-                'callback_method_id': str
+                'message_val': str
             }
         )
+
 
         # To register a method for sending Service messages
         dispatcher.register_function('send_service_msg', self._send_service_msg, returns={'out': str},
             args={
                 'namespace': str,
-                'message_val': str,
-                'callback_method_id': str
+                'message_val': str
             }
         )
-
-        # To register a method for sending Service messages
-        dispatcher.register_function('cancel_action', self._cancel_action, returns={'out': str},
-            args={
-                'namespace': str,
-                'callback_method_id': str
-            }
-        )
-
-
-        # To register a method for Single Node Service Invocation
-        #dispatcher.register_function('invoke_rapp', self._invoke_rapp, returns={'out': str},
-        #    args={
-        #        'svc_name': str
-        #    }
-        #)
 
 
         # To register a method for Releasing Allocated Resources
@@ -361,44 +253,9 @@ class ConcertAdapter(object):
 
         # Prepare subscribers for the adapter2bpel communication
         rospy.loginfo("Method info loaded:\n%s" % LinkGraph['methods'])
-        #self._prepare_adapter2bpel_sub(LinkGraph['methods'])
-
-        #threading.Thread(target=self.test_adapter2bpel).start()
+        self._prepare_adapter2bpel_sub(LinkGraph['methods'])
 
         return "Hi"
-
-
-    def reallocate_resources(self, linkgraph):
-        rospy.loginfo("Request re-allocate resources...")
-        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
-
-
-    def reallocate_rapp(self, rapp):
-        rospy.loginfo("Request re-allocate rapp...")
-        #self.wait_allocation(self._inquire_resources_to_allocate(rapp))
-
-
-    def test_adapter2bpel(self):
-        time.sleep(5)
-        pub = rospy.Publisher("/concert_adapter/invoke_first_service", String, queue_size=10)
-        time.sleep(1)
-        pub.publish("Hello BPEL.")
-
-
-    def receive_single_node_service_invocation(self, Node):
-        '''
-        To receive a service invocation for a single node
-        :param Node:
-        :return:
-        '''
-        # Converting input data to LinkGraph
-        lg_name, linkgraph = self._convert_to_linkgraph(Node)
-        rospy.loginfo("Linkgraph loaded:\n%s" % linkgraph)
-
-        # Requesting resource allocations
-        self.wait_allocation(self._inquire_resources_to_allocate(linkgraph))
-
-        return "Single Node Invocation Success"
 
 
     def wait_allocation(self, request_id):
@@ -417,12 +274,8 @@ class ConcertAdapter(object):
                 timeout = timeout - 1
             else:
                 self.release_allocated_resources()
-                #raise OSError("Timeout for Allocating Resources")
-                #sys.exit(1)
-                try:
-                    raise runtimefault.ResourceAllocationTimeOutFault(self, self._make_sample_linkgraph())
-                except runtimefault.ResourceAllocationTimeOutFault:
-                    pass
+                raise OSError("Timeout for Allocating Resources")
+                sys.exit(1)
 
 
     def _convert_to_linkgraph(self, linkgraph):
@@ -478,79 +331,11 @@ class ConcertAdapter(object):
 
 
 ################################################################
-# Communication from the SOAP server to the BPEL engine
-################################################################
-    def send_msg_to_bpel(self, callback_method_id, msg):
-        """
-        To send a SOAP message to BPEL
-
-        :param address:
-        :param namespace:
-        :param method:
-        :param params:
-        :param result_names:
-        :return:
-        """
-        rospy.loginfo("===== Prepare a SOAP client =====")
-        rospy.loginfo("Address: %s" % self.callback_bpel_method_map[callback_method_id]['address'])
-        rospy.loginfo("NS: %s" % self.callback_bpel_method_map[callback_method_id]['namespace'])
-        rospy.loginfo("=================================")
-        callback_method = self.callback_bpel_method_map[callback_method_id]
-
-        client = SoapClient(
-            location = callback_method['address'], # "http://localhost:8080/ode/processes/A2B"
-            namespace = callback_method['namespace'], # "http://smartylab.co.kr/bpel/a2b"
-            soap_ns='soap')
-        rospy.loginfo("Sending the message to BPEL... %s(%s)" % (callback_method['method'], msg))
-        # response = client.call(method, **(simplejson.loads(params)))
-        param_dict = dict()
-        param_dict[callback_method['param']] = msg
-        response = client.call(callback_method['method'], **param_dict)
-        rospy.loginfo("The message is sent.")
-
-        return_name_splited = str(callback_method['return_name']).split('/')
-        rospy.loginfo("Result Name: %s" % (return_name_splited))
-        rospy.loginfo("Adapter to BPEL Result: %s" % (response.__getattr__(return_name_splited[0]).__getattr__(return_name_splited[1])))
-
-
-    # def send_msg_to_bpel(self, address, namespace, method, param, msg, return_name):
-    #     """
-    #     To send a SOAP message to BPEL
-    #
-    #     :param address:
-    #     :param namespace:
-    #     :param method:
-    #     :param params:
-    #     :param result_names:
-    #     :return:
-    #     """
-    #     rospy.loginfo("===== Prepare a SOAP client =====")
-    #     rospy.loginfo("Address: %s" % address)
-    #     rospy.loginfo("NS: %s" % namespace)
-    #     rospy.loginfo("=================================")
-    #
-    #     client = SoapClient(
-    #         location = address, # "http://localhost:8080/ode/processes/A2B"
-    #         namespace = namespace, # "http://smartylab.co.kr/bpel/a2b"
-    #         soap_ns='soap')
-    #     rospy.loginfo("Sending the message to BPEL... %s(%s)" % (method, msg))
-    #     # response = client.call(method, **(simplejson.loads(params)))
-    #     param_dict = dict()
-    #     param_dict[param] = msg
-    #     response = client.call(method, **param_dict)
-    #     rospy.loginfo("The message is sent.")
-    #     return_name_splited = return_name.split('/')
-    #     rospy.loginfo("Result Name: %s" % (return_name_splited))
-    #     rospy.loginfo("Adapter to BPEL Result: %s" % (response.__getattr__(return_name_splited[0]).__getattr__(return_name_splited[1])))
-
-
-################################################################
 # Resource allocation related methods
 ################################################################
     def _inquire_resources_to_allocate(self, linkgraph):
         """
         Let the requester allocate resources specified in the linkgraph
-
         :param linkgraph:
         :return:
         """
@@ -623,7 +408,7 @@ class ConcertAdapter(object):
                     for service_info in self.linkgraph_info['services']:
                         if service_info['Service']['id'] == service.id:
                             # Preparing a service proxy
-                            service_namespace = self._remap_namespace(service_info['Service']['id'], linkgraph.edges)
+                            service_namespace= self._remap_namespace(service_info['Service']['id'], linkgraph.edges)
                             srv_cls = roslib.message.get_service_class(str(service_info['Service']['type']))
                             srv_req_cls = roslib.message.get_service_class(str(service_info['Service']['type'])+"Request")
 
@@ -632,43 +417,12 @@ class ConcertAdapter(object):
                             self.service_proxies_map[service_namespace]['service_request_type'] = str(service_info['Service']['type'])+'Request'
                             break;
 
-                for method_info in self.linkgraph_info['methods']:
-                    # Preparing a list of callback methods
-                    self.callback_bpel_method_map[method_info['Method']['id']] = dict()
-                    self.callback_bpel_method_map[method_info['Method']['id']] = method_info['Method']
-
-                    #self.service_proxies_map[service_namespace]['service_proxy'] = rospy.ServiceProxy(service_namespace, srv_cls, service_info['Service']['persistency'])
-                    #self.service_proxies_map[service_namespace]['service_request_type'] = str(service_info['Service']['type'])+'Request'
-                    break;
-
-
-    def _call_resource(self, topic_name, msg_dict):
-        """
-        :param topic_name:
-        :param msg:
-        :return:
-        """
-        pub = self.allocated_resources[topic_name]
-        msg_type = roslib.message.get_message_class(str(pub.type))
-        msg_inst = msg_type()
-        self.alloc_message(msg_inst, msg_dict)
-
-        # Allocate message to msg_instance
-        pub.publish(msg_inst)
-
-
-    def alloc_message(self, msg_inst, msg_dict):
-        for key in msg_dict.keys():
-            if type(msg_dict[key]) is dict:
-                self.alloc_message(getattr(msg_inst, key), msg_dict[key])
-            else:
-                setattr(msg_inst, key, msg_dict[key])
-
-
     def release_allocated_resources(self):
         self.requester.cancel_all()
         self.requester.send_requests()
-        self.allocated_resources.clear()
+        self.publishers.clear()
+        self.action_clients_map.clear()
+        self.service_proxies_map.clear()
 
 
     def _gen_resource(self, node, edges):
@@ -685,6 +439,7 @@ class ConcertAdapter(object):
         resource.remappings = [rocon_std_msgs.Remapping(e.remap_from, e.remap_to) for e in edges if e.start == node.id or e.finish == node.id]
 
         return resource
+
 
     def _remap_namespace(self, prev_topic, edges):
         topics = [e.remap_to for e in edges if e.start == prev_topic]
@@ -720,15 +475,15 @@ class ConcertAdapter(object):
 
         return result
 
-    def _send_service_msg(self, namespace, message_val, callback_method_id):
+
+    def _send_service_msg(self, namespace, message_val):
         """
         :param namespace:
         :param message_val:
         :return: result of invoking the service
         """
-        resp = None
-        rospy.loginfo('Service Message')
 
+        resp = None
         try:
             srv_proxy_map = self.service_proxies_map[namespace]
             srv_proxy = srv_proxy_map['service_proxy']
@@ -740,23 +495,18 @@ class ConcertAdapter(object):
 
         except rospy.ServiceException as exc:
             rospy.loginfo("ROS Service Executing failed." + str(exc))
-
         rospy.loginfo(resp)
         return resp
 
 
-    def _send_action_msg(self, namespace, message_val, callback_method_id):
+    def _send_action_msg(self, namespace, message_val):
         """
-        :param namespace
-        :param message_val
+        :param namespace:
         :param message_val:
         :return: result of invoking the action
         """
 
         resp = None
-
-        rospy.loginfo('Service Message')
-
         try:
             action_client_map = self.action_clients_map[namespace]
             action_client = action_client_map['action_client']
@@ -764,8 +514,10 @@ class ConcertAdapter(object):
             goal_cls = roslib.message.get_message_class(str(action_client_map['goal_type']))
             goal = self.alloc_msg(goal_cls(), message_val)
 
-            action_client.send_goal(goal, done_cb= lambda state, result: self._callback_send_action_msg(state, result, action_client_map['callback_method_id']))
+            action_client.send_goal(goal)
+            action_client.wait_for_result()
 
+            resp = action_client.get_result()
             rospy.loginfo(resp)
 
         except ValueError:
@@ -775,39 +527,7 @@ class ConcertAdapter(object):
             rospy.loginfo('Error on finding a specific attribute')
             result = 'failure'
 
-        return 'success'
-
-
-    def _callback_send_action_msg(self, state, result, bpel_callback_id):
-
-        rospy.loginfo('Goal State: %d'% state)
-        rospy.loginfo('Goal Result: %s'% result)
-        rospy.loginfo('Callback ID: %s'% bpel_callback_id)
-        #adapter_2_bpel
-
-    def _cancel_action(self, namespace):
-        """
-        :param namespace:
-        :return: result of invoking the action
-        """
-        goal_state = None
-        resp = None
-
-        action_client_map = self.action_clients_map[namespace]
-        action_client = action_client_map['action_client']
-        goal_state = action_client.get_state()
-        rospy.loginfo("Status: " + goal_state)
-
-        if goal_state is actionlib.GoalStatus.ACTIVE:
-            action_client.stop_tracking_goal()
-
-        goal_state = action_client.get_state()
-
-        rospy.loginfo("Status: " + goal_state)
-        #adapter_2_bpel
-
         return resp
-
 
     def alloc_msg(self, msg_inst, msg_val_str):
         """
@@ -863,7 +583,6 @@ class ConcertAdapter(object):
             raise AttributeError
 
         return msg_inst
-
 ########################################################################################################
 # Main method to launch the adapter
 ########################################################################################################
@@ -879,10 +598,6 @@ if __name__ == '__main__':
     rospy.init_node(NODE_NAME)
 
     adapter = ConcertAdapter()
-
-    #ChatterTester(adapter).start()
-    #TeleopTester(adapter).start()
-    #adapter._invoke_rapp("turtlebot")
     rospy.spin()
 
     if rospy.is_shutdown():
