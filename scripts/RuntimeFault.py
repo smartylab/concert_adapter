@@ -152,16 +152,25 @@ class RappNotAvailableFault(Fault):
     """
     Error raised when a requested robot app is not available
     """
-    def __init__(self, adapter, rapp, linkgraph):
+    def __init__(self, adapter, rapp, linkgraph, namespace, massage_val, callbak_method_id):
         '''
         :param adapter: concert adapter object which is currently running on ROCON
         :param rapp:
         :param linkgraph:
         :return:
         '''
+
+
         Fault.__init__(self, adapter, 'RobotApp', handler.RappAllocationRequester(adapter))
+
         self.rapp = rapp
-        self.topic = self.__get_topic_from_linkgraph(rapp, linkgraph)
+
+        #rospy.loginfo(rapp)
+
+        #rospy.loginfo(rapp)
+
+        #self.topic, self.edge = self.__get_topic_from_linkgraph(rapp, linkgraph)
+        rospy.loginfo("test4")
 
         ################################
         ### execute a remedy process ###
@@ -169,7 +178,6 @@ class RappNotAvailableFault(Fault):
 
         #rospy.loginfo()
         rospy.loginfo("########## RappNotAvailableFault ##########")
-
         # set method and error message
         self.msg = "Error: " + self.cause + " is not finished within 1 second..."
 
@@ -178,16 +186,17 @@ class RappNotAvailableFault(Fault):
         self.printErrorMessage(self.msg)
 
         # Step 2. Request the Resource Scheduler to allocate another rapp
-        rospy.loginfo("########## Step 2. Request the Resource Scheduler to allocate another rapp ##########")
+        #rospy.loginfo("########## Step 2. Request the Resource Scheduler to allocate another rapp ##########")
 
-        self.handler = handler.RappAllocationRequester(self.adapter)
-        self.method = "rapp_allocation"
-        self.handler.doRemedyAction(self.method, self.rapp)
+        # self.handler = handler.RappAllocationRequester(self.adapter)
+        # self.method = "rapp_allocation"
+        # self.handler.doRemedyAction(self.method, linkgraph)
 
         # Step 3. Re-send Topic to the new rapp
-        rospy.loginfo("########## Step 3. Re-send Topic to the new rapp ##########")
+        #rospy.loginfo("########## Step 3. Re-send Topic to the new rapp ##########")
+        rospy.loginfo("########## Step 2. Re-send Action to the new rapp ##########")
         self.handler = handler.TopicResender(self.adapter)
-        self.handler.doRemedyAction(self.rapp, self.topic)
+        self.handler.doRemedyAction(self.rapp, namespace, massage_val, callbak_method_id)
 
 
     # To retrieve a Topic from linkgraph
@@ -198,13 +207,18 @@ class RappNotAvailableFault(Fault):
         :return: rapp and topic sent to the rapp
         '''
 
-        topic_matched = {}
+        action_matched = {}
+        edge_matched = {}
         # To retrieve a topic for the rapp
-        for topic in linkgraph.topics:
-            if topic.id == rapp.id:
-                topic_matched = topic
+        for action in linkgraph.actions:
+            if action.id == rapp.id:
+                action_matched = action
 
-        return topic_matched
+        for edge in linkgraph.edges:
+            if edge.start == rapp.id:
+                edge_matched = edge
+
+        return action_matched, edge_matched
 
 
 class RappInvocationTimeOutFault(Fault):
