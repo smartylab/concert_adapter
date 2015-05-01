@@ -77,13 +77,13 @@ class TopicResender(RuntimeFaultHandler):
         self.__set_adapter(adapter) # To set an adapter
 
     # To send a topic to the given rapp by using the resend_topic method of the Adapter
-    def doRemedyAction(self, rapp, topic):
+    def doRemedyAction(self, rapp, namespace, message_val, callback_method_id):
         '''
         :param rapp: robot app that has an error while sending a topic
         :param topic: topic that is sent to the given rapp
         :return:
         '''
-        self.adapter.resend_topic(rapp, topic)
+        self.adapter.resend_topic(rapp, namespace, message_val, callback_method_id)
 
 
     # To set an adapter for sending topic messages
