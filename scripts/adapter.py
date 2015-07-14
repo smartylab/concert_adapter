@@ -77,6 +77,7 @@ class ConcertAdapter(object):
         'allocated_resources',
         'linkgraph_info',
         'publishers',
+        'subscribers',
         'action_clients_map',
         'service_proxies_map',
         'callback_bpel_method_map',
@@ -105,6 +106,7 @@ class ConcertAdapter(object):
 
         self.linkgraph_info = dict()
         self.publishers = dict()
+        self.subscribers = dict()
         self.action_clients_map = dict()
         self.service_proxies_map = dict()
         self.callback_bpel_method_map = dict()
@@ -262,6 +264,17 @@ class ConcertAdapter(object):
                             'name': str,
                             'return_name': str,
                             'param': str
+                        }
+                    }],
+                    'publishers': [{
+                        'Publisher': {
+                            'topic_id': str
+                        }
+                    }],
+                    'subscribers': [{
+                        'subscriber': {
+                            'topic_id': str,
+                            'callback_method_id': str
                         }
                     }]
                 }
@@ -489,7 +502,6 @@ class ConcertAdapter(object):
 
         return name, lg
 
-
 ################################################################
 # Communication from the SOAP server to the BPEL engine
 ################################################################
@@ -570,14 +582,15 @@ class ConcertAdapter(object):
                 # Removing the request from pending_requests
                 linkgraph = self.pending_requests.pop(request_id) #Typed as link_graph defined by Rocon
 
-                rospy.loginfo("====Allocated Publishers in Concert Adapter====")
-                for topic in linkgraph.topics:
-                    # Preparing a publisher
-                    topic_namespace= self._remap_namespace(topic.id, linkgraph.edges)
-                    message_type=roslib.message.get_message_class(topic.type)
-                    pub = rospy.Publisher(topic_namespace, message_type, queue_size=DEFAULT_QUEUE_SIZE)
-                    rospy.loginfo("Topic: %s, Topic Type: %s" % (topic_namespace, message_type))
-                    self.publishers[topic_namespace] = pub
+                # rospy.loginfo("====Allocated Subscribers in Concert Adapter====")
+                # for topic in linkgraph.topics:
+                #     # Preparing a publisher
+                #     topic_namespace= self._remap_namespace(topic.id, linkgraph.edges)
+                #     message_type=roslib.message.get_message_class(topic.type)
+                #     pub = rospy.Publisher(topic_namespace, message_type, queue_size=DEFAULT_QUEUE_SIZE)
+                #     rospy.loginfo("Topic: %s, Topic Type: %s" % (topic_namespace, message_type))
+                #     self.publishers[topic_namespace] = pub
+
 
                 rospy.loginfo("====Allocated ActionClients in Concert Adapter====")
                 for action in linkgraph.actions:
@@ -594,7 +607,7 @@ class ConcertAdapter(object):
                             self.action_clients_map[action_namespace]['action_client'] = action_client
 
                             self.action_clients_map[action_namespace]['goal_type'] = action_info['Action']['goal_type']
-                            break;
+                            #break;
 
                 rospy.loginfo("====Allocated ServiceProxies in Concert Adapter====")
                 for service in linkgraph.services:
@@ -608,7 +621,7 @@ class ConcertAdapter(object):
                             self.service_proxies_map[service_namespace] = dict()
                             self.service_proxies_map[service_namespace]['service_proxy'] = rospy.ServiceProxy(service_namespace, srv_cls, service_info['Service']['persistency'])
                             self.service_proxies_map[service_namespace]['service_request_type'] = str(service_info['Service']['type'])+'Request'
-                            break;
+                            #break;
 
                 for method_info in self.linkgraph_info['methods']:
                     # Preparing a list of callback methods
@@ -617,22 +630,60 @@ class ConcertAdapter(object):
 
                     #self.service_proxies_map[service_namespace]['service_proxy'] = rospy.ServiceProxy(service_namespace, srv_cls, service_info['Service']['persistency'])
                     #self.service_proxies_map[service_namespace]['service_request_type'] = str(service_info['Service']['type'])+'Request'
-                    break;
+                    #break;
 
 
-    def _call_resource(self, topic_name, msg_dict):
-        """
-        :param topic_name:
-        :param msg:
-        :return:
-        """
-        pub = self.allocated_resources[topic_name]
-        msg_type = roslib.message.get_message_class(str(pub.type))
-        msg_inst = msg_type()
-        self.alloc_message(msg_inst, msg_dict)
+                rospy.loginfo("====Allocated Publishers in Concert Adapter====")
+                for publisher in linkgraph.publishers:
+                    # Preparing a publisher
+                    topic_namespace= self._remap_namespace(publisher.topic_id, linkgraph.edges)
+                    topic_types = [topic.type for topic in linkgraph.topics if topic.id == publisher.topic_id]
+                    cnt = len(topic_types)
 
-        # Allocate message to msg_instance
-        pub.publish(msg_inst)
+                    if cnt>0:
+                        if cnt>1:
+                            rospy.loginfo("Duplicated topic info. The first topic is applied.")
+                        message_type=roslib.message.get_message_class(topic_types[0])
+                        pub = rospy.Publisher(topic_namespace, message_type, queue_size=DEFAULT_QUEUE_SIZE)
+                        rospy.loginfo("Publisher's Topic: %s, Topic Type: %s" % (topic_namespace, message_type))
+                        self.publishers[topic_namespace] = pub
+
+                    else:
+                        rospy.loginfo("Invalid Topic ID")
+
+
+                rospy.loginfo("====Allocated Subscribers in Concert Adapter====")
+                for subscriber in linkgraph.subscribers:
+                    # Preparing a subscriber
+                    topic_namespace= self._remap_namespace(subscriber.topic_id, linkgraph.edges)
+                    topic_types = [topic.type for topic in linkgraph.topics if topic.id == subscriber.topic_id]
+                    cnt = len(topic_types)
+
+                    if cnt>0:
+                        if cnt>1:
+                            rospy.loginfo("Duplicated topic info. The first topic is applied.")
+                        message_type=roslib.message.get_message_class(topic_types[0])
+                        sub = rospy.Subscriber(topic_namespace, message_type, callback= lambda msg: self._callback_subscribe_topic(msg, self.callback_bpel_method_map[subscriber.callback_method_id]['id']))
+
+                        rospy.loginfo("Subscriber's Topic: %s, Topic Type: %s" % (topic_namespace, message_type))
+                        self.subscribers[topic_namespace] = sub
+
+                    else:
+                        rospy.loginfo("Invalid Topic ID")
+
+#    def _call_resource(self, topic_name, msg_dict):
+#        """
+#        :param topic_name:
+#        :param msg:
+#        :return:
+#        """
+#        pub = self.allocated_resources[topic_name]
+#        msg_type = roslib.message.get_message_class(str(pub.type))
+#        msg_inst = msg_type()
+#        self.alloc_message(msg_inst, msg_dict)
+
+#        # Allocate message to msg_instance
+#        pub.publish(msg_inst)
 
 
     def alloc_message(self, msg_inst, msg_dict):
@@ -790,6 +841,12 @@ class ConcertAdapter(object):
         rospy.loginfo('Callback ID: %s'% callback_method_id)
         self.send_msg_to_bpel(callback_method_id, msg)
         #adapter_2_bpel
+
+    def _callback_subscribe_topic(self, msg, callback_method_id):
+        rospy.loginfo('Subscribed Topic Msg: %s'% msg)
+        rospy.loginfo('Callback ID: %s'% callback_method_id)
+        self.send_msg_to_bpel(callback_method_id, msg)
+
 
     def _cancel_action(self, namespace):
         """
